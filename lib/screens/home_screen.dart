@@ -1,154 +1,193 @@
 import 'package:flutter/material.dart';
+import '../data/item_repository.dart';
+import '../models/item.dart';
+import '../routes/app_routes.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
-import '../widgets/event_card.dart';
-import '../widgets/sponsor_card.dart';
-import '../widgets/top_bar.dart';
-import '../models/event_model.dart';
-import '../models/sponsor_model.dart';
+import '../widgets/state_views.dart';
+
+// (1) Status tampilan UI
+enum ViewStatus { loading, success, error }
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final bool simulateError;
+  final ItemRepository? repository;
+
+  const HomeScreen({
+    super.key,
+    this.simulateError = false,
+    this.repository,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _navIndex = 0;
+  // (2) Variabel State
+  late final _repository = widget.repository ?? ItemRepository();
+  ViewStatus _status = ViewStatus.loading;
+  List<Item> _items = [];
+  String _errorMessage = '';
+  late final bool _simulateError = widget.simulateError; // Ubah ke true untuk uji error state
 
-  // ─── Dummy Data ─────────────────────────────────────────────────────────
-  final List<EventModel> _events = const [
-    EventModel(title: 'Concert Jazz Night', date: '25 Okt 2026', status: 'Open'),
-    EventModel(title: 'Seminar Digital 2026', date: '10 Nov 2026', status: 'Draft'),
-    EventModel(title: 'Festival Kopi Nusantara', date: '02 Des 2026', status: 'Closed'),
-  ];
+  // (3) Ambil data saat screen dimuat
+  @override
+  void initState() {
+    super.initState();
+    _loadItems();
+  }
 
-  final List<SponsorModel> _sponsors = const [
-    SponsorModel(
-      name: 'Indofood',
-      initial: 'I',
-      matchScore: 92,
-      reason: 'Audience cocok & engagement tinggi',
-    ),
-    SponsorModel(
-      name: 'Telkomsel',
-      initial: 'T',
-      matchScore: 86,
-      reason: 'Kategori event sangat relevan',
-    ),
-    SponsorModel(
-      name: 'Bank BRI',
-      initial: 'B',
-      matchScore: 79,
-      reason: 'Target demografi sesuai segmen',
-    ),
-  ];
+  // (4) Mengambil data & penanganan error
+  Future<void> _loadItems() async {
+    if (_status != ViewStatus.loading) {
+      setState(() => _status = ViewStatus.loading);
+    }
+
+    try {
+      final items = await _repository.fetchItems(simulateError: _simulateError);
+
+      if (!mounted) return;
+
+      setState(() {
+        _items = items;
+        _status = ViewStatus.success;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        _status = ViewStatus.error;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.softGray,
+      appBar: AppBar(
+        title: const Text('Rekomendasi Sponsor (Matching)'),
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.textPrimary,
+        elevation: 0,
+        centerTitle: false,
+        titleTextStyle: AppTextStyles.sectionTitle.copyWith(
+          fontWeight: FontWeight.bold,
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            color: AppColors.border,
+            height: 1,
+          ),
+        ),
+      ),
+      // (5) Tampilan berdasarkan status
+      body: _buildContent(),
+    );
+  }
 
-      // ─── Top Bar ───────────────────────────────────────────────────────
-      appBar: TopBar(greeting: 'Halo, Dip 👋'),
+  // (6) Memilih status tampilan
+  Widget _buildContent() {
+    return switch (_status) {
+      ViewStatus.loading => const LoadingView(
+          message: 'Menghitung matching score sponsor...',
+        ),
+      ViewStatus.error => ErrorView(
+          message: _errorMessage,
+          onRetry: _loadItems,
+        ),
+      ViewStatus.success => _buildList(),
+    };
+  }
 
-      // ─── Body Scrollable ───────────────────────────────────────────────
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Section: Event Saya ─────────────────────────────────────
-            Text('Event Saya', style: AppTextStyles.sectionTitle),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 148,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _events.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 12),
-                itemBuilder: (context, index) => EventCard(event: _events[index]),
+  // (6) Render daftar sponsor hasil matching
+  Widget _buildList() {
+    if (_items.isEmpty) {
+      return const EmptyView(
+        message: 'Belum ada sponsor yang cocok dengan kriteria event.',
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      itemCount: _items.length,
+      itemBuilder: (context, index) {
+        final item = _items[index];
+        return Card(
+          elevation: 0,
+          color: AppColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: AppColors.border, width: 1),
+          ),
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
+            ),
+            leading: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withAlpha(20),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  item.title.isNotEmpty ? item.title[0] : 'S',
+                  style: AppTextStyles.title.copyWith(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
               ),
             ),
-
-            const SizedBox(height: 28),
-
-            // ── Section: Rekomendasi Sponsor ────────────────────────────
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Rekomendasi Sponsor', style: AppTextStyles.sectionTitle),
-                Text(
-                  'Lihat semua',
-                  style: AppTextStyles.caption.copyWith(color: AppColors.primary),
+            title: Text(
+              item.title,
+              style: AppTextStyles.title.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                item.subtitle,
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textSecondary,
                 ),
-              ],
+              ),
             ),
-            const SizedBox(height: 12),
-            ListView.separated(
-              // Tidak boleh scroll karena sudah di dalam SingleChildScrollView
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _sponsors.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (context, index) => SponsorCard(sponsor: _sponsors[index]),
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withAlpha(20),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '${item.matchingScore}% Match',
+                style: AppTextStyles.badge.copyWith(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
             ),
-          ],
-        ),
-      ),
-
-      // ─── FAB ───────────────────────────────────────────────────────────
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 3,
-        child: const Icon(Icons.add_rounded, size: 28),
-      ),
-
-      // ─── Bottom Navigation Bar ─────────────────────────────────────────
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _navIndex,
-        onTap: (i) => setState(() => _navIndex = i),
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.textSecondary,
-        backgroundColor: AppColors.surface,
-        type: BottomNavigationBarType.fixed,
-        selectedLabelStyle: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-        ),
-        unselectedLabelStyle: const TextStyle(fontSize: 11),
-        elevation: 8,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home_rounded),
-            label: 'Home',
+            // (7) Kirim item terpilih ke DetailScreen
+            onTap: () {
+              Navigator.pushNamed(
+                context,
+                AppRoutes.detail,
+                arguments: item,
+              );
+            },
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.event_outlined),
-            activeIcon: Icon(Icons.event_rounded),
-            label: 'Event',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.description_outlined),
-            activeIcon: Icon(Icons.description_rounded),
-            label: 'Proposal',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications_outlined),
-            activeIcon: Icon(Icons.notifications_rounded),
-            label: 'Notifikasi',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline_rounded),
-            activeIcon: Icon(Icons.person_rounded),
-            label: 'Profil',
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
