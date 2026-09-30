@@ -1,8 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/auth_text_field.dart';
 import '../widgets/primary_button.dart';
+import '../utils/validators.dart';
+import '../routes/app_routes.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,6 +14,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  // Ditambahkan untuk validasi Form login.
+  final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
 
@@ -22,9 +26,26 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  String _displayNameFromEmail(String email) {
+    final localPart = email.split('@').first;
+    final nameParts = localPart
+        .split(RegExp(r'[._+-]+'))
+        .where((part) => part.isNotEmpty)
+        .map((part) => '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}');
+    final displayName = nameParts.join(' ');
+    return displayName.isEmpty ? 'Pengguna' : displayName;
+  }
+
   void _handleLogin() {
-    // TODO: validasi & auth logic lewat Provider
-    Navigator.pushReplacementNamed(context, '/home');
+    // Validasi field sebelum melanjutkan ke Home.
+    if (_formKey.currentState?.validate() ?? false) {
+      final email = _emailCtrl.text.trim();
+      Navigator.pushReplacementNamed(
+        context,
+        AppRoutes.home,
+        arguments: _displayNameFromEmail(email),
+      );
+    }
   }
 
   @override
@@ -34,12 +55,14 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 28.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
               const SizedBox(height: 48),
 
-              // ─── Logo & Brand ─────────────────────────────────────────
+              // â”€â”€â”€ Logo & Brand â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
               Container(
                 width: 72,
                 height: 72,
@@ -58,7 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 40),
 
-              // ─── Judul ────────────────────────────────────────────────
+              // â”€â”€â”€ Judul â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text('Masuk ke akunmu', style: AppTextStyles.title),
@@ -74,26 +97,28 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 24),
 
-              // ─── Email Field ──────────────────────────────────────────
+              // â”€â”€â”€ Email Field â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
               AuthTextField(
                 controller: _emailCtrl,
                 hintText: 'Alamat Email',
                 keyboardType: TextInputType.emailAddress,
                 prefixIcon: Icons.email_outlined,
+                validator: Validators.email,
               ),
               const SizedBox(height: 12),
 
-              // ─── Password Field ───────────────────────────────────────
+              // â”€â”€â”€ Password Field â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
               AuthTextField(
                 controller: _passCtrl,
                 hintText: 'Password',
                 isPassword: true,
                 prefixIcon: Icons.lock_outline,
+                validator: Validators.password,
               ),
 
               const SizedBox(height: 8),
 
-              // ─── Lupa Password ────────────────────────────────────────
+              // â”€â”€â”€ Lupa Password â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
@@ -109,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 16),
 
-              // ─── Tombol Masuk ─────────────────────────────────────────
+              // â”€â”€â”€ Tombol Masuk â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
               PrimaryButton(
                 label: 'Masuk',
                 onPressed: _handleLogin,
@@ -117,7 +142,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 20),
 
-              // ─── Link Daftar ──────────────────────────────────────────
+              // â”€â”€â”€ Link Daftar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -139,10 +164,15 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
 
               const SizedBox(height: 32),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 }
+
+
+
+

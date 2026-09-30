@@ -1,8 +1,9 @@
-import 'dart:math' as math;
+﻿import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/primary_button.dart';
+import '../routes/app_routes.dart';
 
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key});
@@ -24,7 +25,7 @@ class OnboardingScreen extends StatelessWidget {
                 children: [
                   const SizedBox(height: 12),
 
-                  // ─── Main Hero Graphic Container (~40% Visual Weight) ───
+                  // â”€â”€â”€ Main Hero Graphic Container (~40% Visual Weight) â”€â”€â”€
                   SizedBox(
                     height: 290,
                     width: double.infinity,
@@ -171,7 +172,7 @@ class OnboardingScreen extends StatelessWidget {
 
                   const SizedBox(height: 24),
 
-                  // ─── Onboarding Visual Steps Indicator ─────────────────
+                  // â”€â”€â”€ Onboarding Visual Steps Indicator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -206,7 +207,7 @@ class OnboardingScreen extends StatelessWidget {
 
                   const SizedBox(height: 28),
 
-                  // ─── Core Messaging ────────────────────────────────────
+                  // â”€â”€â”€ Core Messaging â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                   Text(
                     'Cari Sponsor\nJadi Lebih Mudah',
                     textAlign: TextAlign.center,
@@ -224,7 +225,7 @@ class OnboardingScreen extends StatelessWidget {
 
                   const SizedBox(height: 36),
 
-                  // ─── Bottom Interactive Zone ───────────────────────────
+                  // â”€â”€â”€ Bottom Interactive Zone â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                   PrimaryButton(
                     label: 'Mulai',
                     height: 60,
@@ -236,12 +237,12 @@ class OnboardingScreen extends StatelessWidget {
                       size: 14,
                       color: Colors.white,
                     ),
-                    onPressed: () => Navigator.pushNamed(context, '/login'),
+                    onPressed: () => Navigator.pushNamed(context, AppRoutes.login),
                   ),
 
                   const SizedBox(height: 16),
 
-                  // ─── Secondary Navigation Link ─────────────────────────
+                  // â”€â”€â”€ Secondary Navigation Link â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -250,7 +251,7 @@ class OnboardingScreen extends StatelessWidget {
                         style: AppTextStyles.onboardingLinkText,
                       ),
                       GestureDetector(
-                        onTap: () => Navigator.pushNamed(context, '/login'),
+                        onTap: () => Navigator.pushNamed(context, AppRoutes.login),
                         child: Text(
                           'Masuk',
                           style: AppTextStyles.onboardingLinkAction,
@@ -269,3 +270,4 @@ class OnboardingScreen extends StatelessWidget {
     );
   }
 }
+
