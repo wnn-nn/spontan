@@ -1,10 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'theme/app_colors.dart';
 import 'models/app_state.dart';
-import 'screens/onboarding_screen.dart';
-import 'screens/login_screen.dart';
-import 'screens/home_screen.dart';
+import 'routes/app_routes.dart';
 
 void main() {
   runApp(const MyApp());
@@ -35,13 +33,10 @@ class MyApp extends StatelessWidget {
             surface: AppColors.surface,
           ),
         ),
-        initialRoute: '/',
-        routes: {
-          '/': (_) => const OnboardingScreen(),
-          '/login': (_) => const LoginScreen(),
-          '/home': (_) => const HomeScreen(),
-        },
+        initialRoute: AppRoutes.onboarding,
+        onGenerateRoute: AppRoutes.onGenerateRoute,
       ),
     );
   }
 }
+

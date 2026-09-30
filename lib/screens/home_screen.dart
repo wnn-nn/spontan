@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/event_card.dart';
@@ -6,9 +6,13 @@ import '../widgets/sponsor_card.dart';
 import '../widgets/top_bar.dart';
 import '../models/event_model.dart';
 import '../models/sponsor_model.dart';
+import '../data/event_repository.dart';
+import '../widgets/state_views.dart';
+import '../routes/app_routes.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final String userName;
+  const HomeScreen({super.key, required this.userName});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -17,12 +21,38 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _navIndex = 0;
 
-  // ─── Dummy Data ─────────────────────────────────────────────────────────
-  final List<EventModel> _events = const [
-    EventModel(title: 'Concert Jazz Night', date: '25 Okt 2026', status: 'Open'),
-    EventModel(title: 'Seminar Digital 2026', date: '10 Nov 2026', status: 'Draft'),
-    EventModel(title: 'Festival Kopi Nusantara', date: '02 Des 2026', status: 'Closed'),
-  ];
+  // State loading, error, dan data Home diambil dari repository.
+  final EventRepository _eventRepository = EventRepository();
+  List<EventModel> _events = const [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEvents();
+  }
+
+  Future<void> _loadEvents({bool simulateError = false}) async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final events = await _eventRepository.fetchEvents(
+        simulateError: simulateError,
+      );
+      if (!mounted) return;
+      setState(() => _events = events);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _errorMessage = error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   final List<SponsorModel> _sponsors = const [
     SponsorModel(
@@ -50,55 +80,12 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.softGray,
 
-      // ─── Top Bar ───────────────────────────────────────────────────────
-      appBar: TopBar(greeting: 'Halo, Dip 👋'),
+      // â”€â”€â”€ Top Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      appBar: TopBar(greeting: 'Halo, ${widget.userName} 👋'),
 
-      // ─── Body Scrollable ───────────────────────────────────────────────
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Section: Event Saya ─────────────────────────────────────
-            Text('Event Saya', style: AppTextStyles.sectionTitle),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 148,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _events.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 12),
-                itemBuilder: (context, index) => EventCard(event: _events[index]),
-              ),
-            ),
+      body: _buildCurrentPage(),
 
-            const SizedBox(height: 28),
-
-            // ── Section: Rekomendasi Sponsor ────────────────────────────
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Rekomendasi Sponsor', style: AppTextStyles.sectionTitle),
-                Text(
-                  'Lihat semua',
-                  style: AppTextStyles.caption.copyWith(color: AppColors.primary),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ListView.separated(
-              // Tidak boleh scroll karena sudah di dalam SingleChildScrollView
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _sponsors.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (context, index) => SponsorCard(sponsor: _sponsors[index]),
-            ),
-          ],
-        ),
-      ),
-
-      // ─── FAB ───────────────────────────────────────────────────────────
+      // â”€â”€â”€ FAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       floatingActionButton: FloatingActionButton(
         onPressed: () {},
         backgroundColor: AppColors.primary,
@@ -107,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: const Icon(Icons.add_rounded, size: 28),
       ),
 
-      // ─── Bottom Navigation Bar ─────────────────────────────────────────
+      // â”€â”€â”€ Bottom Navigation Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _navIndex,
         onTap: (i) => setState(() => _navIndex = i),
@@ -151,4 +138,125 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  Widget _buildCurrentPage() {
+    switch (_navIndex) {
+      case 1:
+        return _buildFeaturePage(
+          title: 'Event',
+          icon: Icons.event_rounded,
+          message: 'Kelola semua event kamu di sini.',
+        );
+      case 2:
+        return _buildFeaturePage(
+          title: 'Proposal',
+          icon: Icons.description_rounded,
+          message: 'Pantau proposal sponsorship kamu.',
+        );
+      case 3:
+        return _buildFeaturePage(
+          title: 'Notifikasi',
+          icon: Icons.notifications_rounded,
+          message: 'Belum ada notifikasi baru.',
+        );
+      case 4:
+        return _buildFeaturePage(
+          title: 'Profil',
+          icon: Icons.person_rounded,
+          message: 'Kelola informasi profil kamu.',
+        );
+      case 0:
+      default:
+        return _buildHomePage();
+    }
+  }
+
+  Widget _buildHomePage() {
+    if (_isLoading) {
+      return const LoadingView();
+    }
+    if (_errorMessage != null) {
+      return ErrorView(
+        message: _errorMessage!,
+        onRetry: _loadEvents,
+      );
+    }
+    if (_events.isEmpty) {
+      return const EmptyView(message: 'Belum ada event.');
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Event Saya', style: AppTextStyles.sectionTitle),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 148,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _events.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (context, index) => GestureDetector(
+                onTap: () => Navigator.pushNamed(
+                  context,
+                  AppRoutes.detail,
+                  arguments: _events[index],
+                ),
+                child: EventCard(event: _events[index]),
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Rekomendasi Sponsor', style: AppTextStyles.sectionTitle),
+              Text(
+                'Lihat semua',
+                style: AppTextStyles.caption.copyWith(color: AppColors.primary),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _sponsors.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            itemBuilder: (context, index) => SponsorCard(sponsor: _sponsors[index]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeaturePage({
+    required String title,
+    required IconData icon,
+    required String message,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 56, color: AppColors.primary),
+            const SizedBox(height: 16),
+            Text(title, style: AppTextStyles.sectionTitle),
+            const SizedBox(height: 8),
+            Text(message, style: AppTextStyles.caption, textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
 }
+
+
+
+
+
+
+
