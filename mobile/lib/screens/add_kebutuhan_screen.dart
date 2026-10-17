@@ -80,9 +80,10 @@ class _AddKebutuhanScreenState extends State<AddKebutuhanScreen> {
 
     final newKebutuhan = KebutuhanModel(
       id: 'KB-${DateTime.now().millisecondsSinceEpoch % 1000}',
-      jenisKebutuhan: _selectedJenis!,
+      eventId: widget.eventId ?? '',
+      jenis: _selectedJenis!,
       deskripsi: deskripsi,
-      nilaiEstimasi: nilaiEstimasi,
+      nilai: nilaiEstimasi,
       satuanKeterangan: formattedSatuan,
       status: 'Terbuka',
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'core/constants/api_constants.dart';
 import 'core/constants/app_colors.dart';
 import 'core/services/auth_storage.dart';
+import 'routes/route_generator.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_navigation_screen.dart';
 
@@ -28,6 +29,10 @@ class SpontanApp extends StatelessWidget {
     return MaterialApp(
       title: 'SPONTAN',
       debugShowCheckedModeBanner: false,
+      // Modul 2: RouteGenerator mendaftarkan rute AppRoutes.kebutuhan
+      // dan AppRoutes.kebutuhanTambah. Rute Modul 1 juga terdaftar di sana
+      // namun navigasi Modul 1 tetap menggunakan Navigator.push seperti semula.
+      onGenerateRoute: RouteGenerator.onGenerateRoute,
       theme: ThemeData(
         useMaterial3: true,
         scaffoldBackgroundColor: AppColors.background,
