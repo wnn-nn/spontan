@@ -93,13 +93,18 @@ class _FormKebutuhanScreenState extends State<FormKebutuhanScreen> {
   // ── Submit ─────────────────────────────────────────────────────────────────
 
   Future<void> _handleSimpan() async {
-    // Paksa validasi dropdown jenis secara manual agar error muncul
+    // Paksa rebuild agar error dropdown jenis muncul
     setState(() {});
 
     final isValid = _formKey.currentState!.validate();
     final isJenisValid = _selectedJenis != null && _selectedJenis!.isNotEmpty;
 
     if (!isValid || !isJenisValid) return;
+
+    // Backup validation: pastikan nilai benar-benar valid sebelum menyimpan
+    final rawNilai = _nilaiController.text.trim();
+    final parsedNilai = int.tryParse(rawNilai);
+    if (parsedNilai == null || parsedNilai < 10000) return;
 
     // Cegah double-tap: blokir tombol selama penyimpanan
     setState(() => _isSaving = true);
@@ -373,6 +378,7 @@ class _FormKebutuhanScreenState extends State<FormKebutuhanScreen> {
       maxLines: 4,
       minLines: 3,
       maxLength: 250,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       validator: _validateDeskripsi,
       style: const TextStyle(
         fontSize: 14,
@@ -418,6 +424,7 @@ class _FormKebutuhanScreenState extends State<FormKebutuhanScreen> {
       controller: _nilaiController,
       enabled: !_isSaving,
       keyboardType: TextInputType.number,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       inputFormatters: [
         FilteringTextInputFormatter.digitsOnly,
       ],
