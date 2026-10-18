@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../core/constants/app_colors.dart';
 import '../models/event_model.dart';
 import '../models/kebutuhan_model.dart';
-import 'add_kebutuhan_screen.dart';
 import 'edit_event_screen.dart';
+import 'form_kebutuhan_screen.dart';
 
 class EventDetailScreen extends StatefulWidget {
   final EventModel? event;
@@ -37,25 +37,28 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     _kebutuhanList = [
       KebutuhanModel(
         id: 'KB-001',
-        jenisKebutuhan: 'Dana',
+        eventId: widget.event?.idEvent.toString() ?? '0',
+        jenis: 'Dana',
         deskripsi: 'Dana Operasional Pembicara',
-        nilaiEstimasi: 5000000,
+        nilai: 5000000,
         satuanKeterangan: 'Rp 5.000.000',
         status: 'Terbuka',
       ),
       KebutuhanModel(
         id: 'KB-002',
-        jenisKebutuhan: 'Barang',
+        eventId: widget.event?.idEvent.toString() ?? '0',
+        jenis: 'Barang',
         deskripsi: 'Konsumsi 500 Snack Box',
-        nilaiEstimasi: 7500000,
+        nilai: 7500000,
         satuanKeterangan: '500 Paket',
         status: 'Terbuka',
       ),
       KebutuhanModel(
         id: 'KB-003',
-        jenisKebutuhan: 'Media Partner',
+        eventId: widget.event?.idEvent.toString() ?? '0',
+        jenis: 'Media Partner',
         deskripsi: 'Publikasi Media Sosial',
-        nilaiEstimasi: 0,
+        nilai: 0,
         satuanKeterangan: '10 Akun Kampus',
         status: 'Terpenuhi',
       ),
@@ -63,13 +66,28 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   }
 
   Future<void> _navigateToAddKebutuhan() async {
+    // Gunakan EventModel dari backend jika tersedia.
+    // Jika null (data preset lokal), buat EventModel sintetis dari
+    // data string yang ada agar FormKebutuhanScreen menerima argumen valid.
+    final eventForForm = widget.event ??
+        EventModel(
+          idEvent: 0,
+          idPembuat: 0,
+          judul: widget.initialJudul ?? 'Event',
+          deskripsi: '',
+          tanggalMulai: widget.initialTanggal ?? '',
+          tanggalSelesai: '',
+          lokasi: widget.initialLokasi ?? '',
+          kategori: widget.initialKategori ?? '',
+          estimasiPeserta: 0,
+          status: 'draft',
+          targetAudiences: const [],
+        );
+
     final result = await Navigator.push<KebutuhanModel>(
       context,
       MaterialPageRoute(
-        builder: (context) => AddKebutuhanScreen(
-          eventId: widget.event?.idEvent.toString(),
-          eventJudul: widget.event?.judul ?? widget.initialJudul,
-        ),
+        builder: (context) => FormKebutuhanScreen(event: eventForForm),
       ),
     );
 
@@ -88,7 +106,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               ),
             ],
           ),
-          backgroundColor: const Color(0xFF10B981),
+          backgroundColor: AppColors.success,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -692,8 +710,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 padding: const EdgeInsets.only(bottom: 10),
                 child: _buildNeedItem(
                   item.deskripsi,
-                  item.jenisKebutuhan,
-                  item.satuanKeterangan ?? 'Estimasi: Rp ${item.nilaiEstimasi.toInt()}',
+                  item.jenis,
+                  item.satuanKeterangan ?? 'Estimasi: Rp ${item.nilai.toInt()}',
                   item.status,
                 ),
               ),
@@ -813,15 +831,25 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              const SizedBox(height: 2),
-              Text('$type • $value', style: const TextStyle(color: Color(0xFF64748B), fontSize: 11.5)),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$type • $value',
+                  style: const TextStyle(color: Color(0xFF64748B), fontSize: 11.5),
+                ),
+              ],
+            ),
           ),
+          const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
