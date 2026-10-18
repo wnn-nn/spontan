@@ -5,7 +5,7 @@
 
 | Dokumen | Deskripsi |
 | :--- | :--- |
-| **Nama File** | `perd_spontan_v1.1.md` |
+| **Nama File** | `prd_spontan_v1.1.md` |
 | **Aplikasi** | SPONTAN (Sponsorship Platform Mahasiswa) |
 | **Target Platform** | Android (min. Android 8.0 Oreo), Flutter Framework |
 | **Tim Pengembang** | 1. Dhyva Aulia Hendri (2411521001) – Modul 1: Manajemen Event<br>2. Wanda Fitriardi (2411521004) – Modul 2: Kebutuhan & Proposal<br>3. Anggun Meika Candra (2411521012) – Modul 3: Matching, Rekomendasi & Tracking |
@@ -20,6 +20,9 @@
 4. [Arsitektur & Manajemen State Aplikasi](#4-arsitektur--manajemen-state-aplikasi)
 5. [Alur Navigasi, Routing, & Result Handlers](#5-alur-navigasi-routing--result-handlers)
 6. [Struktur Folder Proyek Flutter (Modular per Tim)](#6-struktur-folder-proyek-flutter-modular-per-tim)
+7. [Spesifikasi Khusus Workflow: Pembuatan Event](#7-spesifikasi-khusus-workflow-pembuatan-event-practical-challenge)
+8. [Kesimpulan & Kesiapan Implementasi Kode](#8-kesimpulan--kesiapan-implementasi-kode)
+
 
 ---
 
@@ -97,10 +100,11 @@ Data pengajuan sponsorship yang dikirim mahasiswa ke sponsor tertentu.
 * `id_pengirim` (String/Int): Relasi ke `User` (mahasiswa).
 * `isi_proposal` (String): Surat pengantar / cover letter / pesan mahasiswa ke sponsor.
 * `file_dokumen` (String): File path / URL dokumen proposal (Format PDF).
-* `status` (String): Status pengajuan (`draft`, `pending`, `accepted`, `rejected`).
+* `status` (String): Status pengajuan (`draft`, `pending`, `accepted`, `rejected`, `cancelled`).
+* `alasan_pembatalan` (String?): Catatan atau alasan pembatalan proposal yang diinputkan oleh mahasiswa saat membatalkan proposal berstatus pending (FR-M3-03).
 * `tanggal_kirim` (DateTime?): Waktu proposal dikirim (diisi saat status berubah ke pending).
 * `catatan_sponsor` (String?): Feedback atau alasan persetujuan/penolakan dari sponsor (berasal dari API).
-* `status_diperbarui_pada` (DateTime?): Timestamp terakhir status diubah oleh API.
+* `status_diperbarui_pada` (DateTime?): Timestamp terakhir status diubah oleh API atau saat dibatalkan oleh mahasiswa.
 
 ### 1.7 Entitas `SponsorTersimpan` (Modul 3 - Anggota 3)
 Bookmark sponsor sasaran yang disimpan mahasiswa per event untuk difollow-up.
@@ -151,6 +155,7 @@ Berikut pembagian ketat untuk form input pengguna:
 | **Modul 2 - Form Proposal** | `id_event` & `id_sponsor` | **Wajib** | Relasi data pengajuan |
 | | `isi_proposal` | **Wajib** | Surat pengantar singkat dari mahasiswa |
 | | `file_dokumen` | **Wajib** | Berkas proposal lengkap (format PDF) |
+| **Modul 3 - Form Pembatalan Proposal** | `alasan_pembatalan` | **Wajib** | Alasan pembatalan oleh mahasiswa saat memperbarui status proposal pending menjadi cancelled (FR-M3-03) |
 | **Data Respon API** | `catatan_sponsor` | *Opsional* | Diisi dari API jika sponsor memberikan feedback saat update status |
 
 ---
@@ -216,6 +221,12 @@ Berikut pembagian ketat untuk form input pengguna:
    - Wajib berekstensi `.pdf`.
    - Ukuran maksimal: 10 MB.
 
+#### E. Form / Dialog Pembatalan Proposal (Modul 3 - FR-M3-03)
+1. **Alasan Pembatalan:**
+   - Wajib diisi saat mahasiswa memperbarui status proposal `pending` menjadi `cancelled`.
+   - Minimal 5 karakter, maksimal 500 karakter.
+   - Tidak boleh hanya berupa spasi kosong / whitespace.
+
 ---
 
 ### 3.2 Aturan Bisnis & Logika Sistem (Business Logic Rules)
@@ -230,9 +241,10 @@ Berikut pembagian ketat untuk form input pengguna:
    - Setiap kali kebutuhan sponsorship ditambah, diubah jenisnya, atau dihapus, sistem **otomatis menghitung ulang Matching Score** (parameter P3).
 4. **Aturan Hapus Proposal (FR-M2-04):**
    - Mahasiswa hanya dapat menghapus proposal yang masih berstatus `draft`.
-5. **Aturan Pembatalan Proposal (FR-M3-04):**
-   - Mahasiswa hanya dapat membatalkan proposal yang berstatus `pending`.
-   - Proposal yang sudah berstatus `accepted` atau `rejected` bersifat **final** dan tidak dapat dibatalkan oleh mahasiswa.
+5. **Aturan Pembatalan Proposal (FR-M3-03 & FR-M3-04):**
+   - Mahasiswa hanya dapat membatalkan proposal yang masih berstatus `pending` (FR-M3-04).
+   - Pembatalan proposal memperbarui status proposal menjadi `cancelled` serta **wajib menyertakan inputan alasan pembatalan** oleh mahasiswa (FR-M3-03).
+   - Proposal yang sudah berstatus `accepted`, `rejected`, atau `cancelled` bersifat **final** dan tidak dapat dibatalkan atau diubah statusnya kembali oleh mahasiswa.
 6. **Aturan Matching Score (PRD §2.8):**
    - Rumus: $\text{Score} = P1 + P2 + P3$
    - $P1$ (Kategori): $40$ jika match, $0$ jika tidak.
@@ -246,7 +258,8 @@ Berikut pembagian ketat untuk form input pengguna:
      - $< 40$: Tidak ditampilkan.
    - **Urutan Tampil:** Skor tertinggi ke terendah, lalu alfabet nama brand ($A-Z$).
 7. **Aturan Status Proposal Berbasis API (PRD §2.9):**
-   - Aplikasi mahasiswa hanya membaca (*read-only*) status `accepted` dan `rejected` dari API.
+   - Aplikasi mahasiswa membaca (*read-only*) status `accepted` dan `rejected` dari API.
+   - Mahasiswa dapat memperbarui status proposal dari `pending` menjadi `cancelled` melalui aplikasi dengan menyertakan inputan alasan pembatalan (FR-M3-03).
    - Aplikasi mengambil update saat: (1) aplikasi baru dibuka, dan (2) pengguna melakukan *pull-to-refresh*.
    - Jika terdeteksi perubahan status dari `pending` ke `accepted`/`rejected`, sistem memicu Notifikasi Lokal dalam waktu $\le 5$ detik (NFR-05).
    - Jika API offline saat refresh, tampilkan Snackbar peringatan dan pertahankan data offline terakhir di layar (NFR-06).
@@ -314,7 +327,7 @@ enum ViewStatus { initial, loading, success, empty, error }
   * `pickProposalDocument()`: Membuka FilePicker perangkat untuk memilih PDF.
   * `submitProposal(ProposalPayload)`: Mengirim proposal ke API dengan status awal `pending`.
   * `deleteDraftProposal(idProposal)`
-  * `cancelPendingProposal(idProposal)`: Membatalkan pengajuan.
+  * `cancelPendingProposal(idProposal, alasanPembatalan)`: Memperbarui status proposal pending menjadi cancelled dengan menyertakan alasan pembatalan (FR-M3-03).
 
 #### D. Modul 3: Matching & Tracking State (`MatchingProvider` & `TrackingProvider` - Anggun)
 * **Variabel State:**
@@ -326,7 +339,8 @@ enum ViewStatus { initial, loading, success, empty, error }
 * **Method Aksi:**
   * `calculateMatching(idEvent)`: Menjalankan kalkulasi rule-based P1, P2, P3 berdasarkan data event & kebutuhan.
   * `fetchRecommendations(idEvent)`: Mengambil daftar rekomendasi sponsor (Score $\ge 40$).
-  * `toggleSaveSponsor(idEvent, idSponsor)`: Menambah/menghapus sponsor dari daftar sasaran.
+  * `toggleSaveSponsor(idEvent, idSponsor)`: Menambah/menghapus sponsor dari daftar sasaran (FR-M3-01).
+  * `cancelProposal(idProposal, alasanPembatalan)`: Memperbarui status proposal pending menjadi cancelled serta menyimpan inputan alasan pembatalan ke backend (FR-M3-03 & FR-M3-04).
   * `refreshProposalStatuses()`: Memanggil endpoint API untuk mengambil status proposal terbaru, membandingkan status lama vs baru, dan memicu notifikasi jika ada perubahan status.
 
 #### E. Modul Notifikasi (`NotificationProvider`)
@@ -366,8 +380,8 @@ Aplikasi menggunakan alur navigasi terpusat dengan `Named Routes` atau direct `M
        ▼                       ▼                        ▼
 [Detail Event]           [Detail Sponsor]        [Detail Proposal]
  ├── Edit Event           ├── Rincian Skor P1-P3  ├── Info Status & Catatan
- ├── Kelola Kebutuhan     ├── Bookmark Sponsor    └── Batalkan Proposal
- └── Ajukan Proposal      └── Ajukan Proposal
+ ├── Kelola Kebutuhan     ├── Bookmark Sponsor    └── Batalkan Proposal (Dialog Input Alasan)
+ └── Ajukan Proposal      └── Ajukan Proposal         └── Update Status: Cancelled
        │
        ▼
  [Form Kirim Proposal] ──► (Upload PDF) ──► (Kirim: Pending)
@@ -387,7 +401,7 @@ Aplikasi menggunakan alur navigasi terpusat dengan `Named Routes` atau direct `M
 | `/kebutuhan-form`| `KebutuhanFormScreen`| `String idEvent, Kebutuhan? item` | `bool? isSaved` | Jika true: SnackBar "Kebutuhan diperbarui" + reload matching score |
 | `/sponsor-detail`| `SponsorDetailScreen`| `Sponsor sponsor, MatchingScore? score` | - | Aksi bookmark / lanjut ke form pengajuan proposal |
 | `/proposal-form` | `ProposalFormScreen`| `Event event, Sponsor sponsor` | `bool? isSubmitted` | Jika true: SnackBar "Proposal berhasil diajukan!" $\rightarrow$ Navigasi ke Tab Tracking |
-| `/proposal-detail`|`ProposalDetailScreen`| `String idProposal` | `bool? isCancelled` | Jika true: SnackBar "Proposal berhasil dibatalkan" + refresh data |
+| `/proposal-detail`|`ProposalDetailScreen`| `String idProposal` | `bool? isCancelled` | Jika true: SnackBar "Proposal berhasil dibatalkan (Status: Cancelled)" + refresh data |
 | `/notifications` | `NotificationScreen` | Tidak ada | - | Mark all as read saat dibuka |
 | `/saved-sponsors`| `SavedSponsorsScreen`| Tidak ada | - | Tampilkan daftar sponsor sasaran |
 

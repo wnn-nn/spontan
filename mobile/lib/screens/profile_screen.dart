@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../core/constants/app_colors.dart';
 import '../core/services/auth_storage.dart';
 import '../models/user_model.dart';
+import '../repositories/sponsor_repository.dart';
 import 'login_screen.dart';
+import 'saved_sponsors_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -14,16 +16,25 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   UserModel? _user;
+  int _savedCount = 0;
 
   @override
   void initState() {
     super.initState();
     _loadUser();
+    _loadSavedCount();
   }
 
   Future<void> _loadUser() async {
     final u = await AuthStorage.getUser();
     if (mounted) setState(() => _user = u);
+  }
+
+  Future<void> _loadSavedCount() async {
+    final list = await SponsorRepository.instance.getAllSavedSponsors();
+    if (mounted) {
+      setState(() => _savedCount = list.length);
+    }
   }
 
   Future<void> _handleLogout() async {
@@ -190,7 +201,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const Divider(height: 1, color: AppColors.border),
                   _buildProfileTile(Icons.layers_outlined, 'Modul Penugasan', 'Modul 1: Manajemen Event'),
                   const Divider(height: 1, color: AppColors.border),
-                  _buildProfileTile(Icons.bookmark_border_rounded, 'Sponsor Sasaran Tersimpan', '3 Perusahaan'),
+                  _buildProfileTile(
+                    Icons.bookmark_border_rounded,
+                    'Sponsor Sasaran Tersimpan',
+                    '$_savedCount Perusahaan',
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SavedSponsorsScreen()),
+                      );
+                      _loadSavedCount();
+                    },
+                  ),
                 ],
               ),
             ),
@@ -225,8 +247,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildProfileTile(IconData icon, String title, String value) {
-    return Padding(
+  Widget _buildProfileTile(
+    IconData icon,
+    String title,
+    String value, {
+    VoidCallback? onTap,
+  }) {
+    final content = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
@@ -244,14 +271,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
+              color: onTap != null ? AppColors.primary : AppColors.textPrimary,
             ),
           ),
+          if (onTap != null) ...[
+            const SizedBox(width: 6),
+            const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.primary),
+          ],
         ],
       ),
     );
+
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: content,
+      );
+    }
+    return content;
   }
 }

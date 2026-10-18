@@ -1,4 +1,4 @@
-﻿/// Konstanta aplikasi bersama untuk Modul 2 -- Kebutuhan Sponsorship dan Proposal.
+/// Konstanta aplikasi bersama untuk Modul 2 -- Kebutuhan Sponsorship dan Proposal.
 ///
 /// Semua nilai baku jenis kebutuhan dan status proposal didefinisikan di sini.
 class AppConstants {
@@ -26,11 +26,13 @@ class AppConstants {
   static const String statusProposalPending = 'Pending';
   static const String statusProposalAccepted = 'Accepted';
   static const String statusProposalRejected = 'Rejected';
+  static const String statusProposalCancelled = 'Cancelled';
 
   static const List<String> statusProposalOptions = [
     statusProposalDraft,
     statusProposalPending,
     statusProposalAccepted,
     statusProposalRejected,
+    statusProposalCancelled,
   ];
 }

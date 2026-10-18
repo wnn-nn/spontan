@@ -5,8 +5,10 @@ import '../core/services/api_service.dart';
 import '../core/services/auth_storage.dart';
 import '../models/event_model.dart';
 import '../models/user_model.dart';
+import '../repositories/sponsor_repository.dart';
 import 'create_event_screen.dart';
 import 'event_detail_screen.dart';
+import 'sponsor_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final Function(int tabIndex)? onNavigateToTab;
@@ -555,9 +557,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final sponsors = [
       {
-        'nama': 'Sponsor A',
+        'id': 'SPON-008',
+        'nama': 'Sponsor A (Tokopedia)',
         'initials': 'SA',
-        'industri': 'Industri Teknologi',
+        'industri': 'Industri Teknologi & E-Commerce',
         'score': '100%',
         'percent': 1.0,
         'label': 'Tinggi',
@@ -567,9 +570,10 @@ class _HomeScreenState extends State<HomeScreen> {
         'category': 'Dana',
       },
       {
-        'nama': 'Sponsor B',
+        'id': 'SPON-002',
+        'nama': 'Sponsor B (Bank Nagari)',
         'initials': 'SB',
-        'industri': 'Fintech & Perbankan',
+        'industri': 'Fintech & Perbankan Daerah',
         'score': '85%',
         'percent': 0.85,
         'label': 'Tinggi',
@@ -579,9 +583,10 @@ class _HomeScreenState extends State<HomeScreen> {
         'category': 'Dana',
       },
       {
-        'nama': 'Sponsor C',
+        'id': 'SPON-006',
+        'nama': 'Sponsor C (Teh Botol Sosro)',
         'initials': 'SC',
-        'industri': 'Konsumsi & FnB',
+        'industri': 'Konsumsi & Minuman Kemasan (FnB)',
         'score': '70%',
         'percent': 0.70,
         'label': 'Sedang',
@@ -653,122 +658,137 @@ class _HomeScreenState extends State<HomeScreen> {
         // List Kartu Sponsor (SA, SB, SC)
         Column(
           children: (filtered.isEmpty ? sponsors : filtered).map((sp) {
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  // Circle Avatar Initials (SA / SB / SC)
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: sp['avatarBg'] as Color,
-                      shape: BoxShape.circle,
+            return InkWell(
+              onTap: () {
+                final sponsorId = sp['id'] as String;
+                final sponsor = SponsorRepository.instance.getSponsorById(sponsorId);
+                if (sponsor != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => SponsorDetailScreen(sponsor: sponsor),
                     ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      sp['initials'] as String,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
-                        color: sp['avatarColor'] as Color,
+                  );
+                }
+              },
+              borderRadius: BorderRadius.circular(18),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    // Circle Avatar Initials (SA / SB / SC)
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: sp['avatarBg'] as Color,
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        sp['initials'] as String,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          color: sp['avatarColor'] as Color,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 14),
+                    const SizedBox(width: 14),
 
-                  // Info Sponsor (Nama, Industri, Kriteria)
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    // Info Sponsor (Nama, Industri, Kriteria)
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            sp['nama'] as String,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            sp['industri'] as String,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            sp['kriteria'] as String,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF2563EB),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Kolom Kanan: Persentase (100%), Garis Progress, Label (Tinggi)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          sp['nama'] as String,
+                          sp['score'] as String,
                           style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF0F172A),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF2563EB),
                           ),
                         ),
-                        const SizedBox(height: 3),
+                        const SizedBox(height: 5),
+                        // Mini Progress Bar
+                        Container(
+                          width: 58,
+                          height: 3.5,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE2E8F0),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                          alignment: Alignment.centerLeft,
+                          child: FractionallySizedBox(
+                            widthFactor: sp['percent'] as double,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2563EB),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 5),
                         Text(
-                          sp['industri'] as String,
+                          sp['label'] as String,
                           style: const TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             color: Color(0xFF64748B),
                             fontWeight: FontWeight.w400,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          sp['kriteria'] as String,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF2563EB),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
                       ],
                     ),
-                  ),
-
-                  // Kolom Kanan: Persentase (100%), Garis Progress, Label (Tinggi)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        sp['score'] as String,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF2563EB),
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      // Mini Progress Bar
-                      Container(
-                        width: 58,
-                        height: 3.5,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE2E8F0),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                        alignment: Alignment.centerLeft,
-                        child: FractionallySizedBox(
-                          widthFactor: sp['percent'] as double,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF2563EB),
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        sp['label'] as String,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF64748B),
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           }).toList(),

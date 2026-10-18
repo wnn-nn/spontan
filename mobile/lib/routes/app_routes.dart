@@ -56,4 +56,19 @@ class AppRoutes {
   /// Navigator.pushNamed(context, AppRoutes.kebutuhanTambah, arguments: event);
   /// ```
   static const String kebutuhanTambah = '/kebutuhan/tambah';
+
+  // ── Modul 3 — Matching, Rekomendasi & Tracking ─────────────────────────────
+
+  /// Halaman detail profil sponsor & analisis kecocokan.
+  /// Argumen: [SponsorModel] atau [Map<String, dynamic>] dengan key:
+  /// 'sponsor', 'score', 'event'.
+  static const String sponsorDetail = '/sponsors/detail';
+
+  /// Halaman detail tracking proposal & pembatalan.
+  /// Argumen: [ProposalModel].
+  static const String proposalDetail = '/proposals/detail';
+
+  /// Halaman daftar sponsor sasaran tersimpan (bookmark).
+  static const String savedSponsors = '/sponsors/saved';
 }
+
