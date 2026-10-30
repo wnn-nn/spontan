@@ -34,7 +34,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     final screens = [
       HomeScreen(onNavigateToTab: _onTabSelected),
       EventListScreen(onOpenProfile: () => _onTabSelected(4)),
-      const ProposalScreen(),
+      ProposalScreen(onOpenProfile: () => _onTabSelected(4)),
       const NotificationScreen(),
       const ProfileScreen(),
     ];

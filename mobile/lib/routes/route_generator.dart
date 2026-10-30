@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../models/event_model.dart';
+import '../models/matching_score_model.dart';
+import '../models/proposal_model.dart';
+import '../models/sponsor_model.dart';
 import '../screens/create_event_screen.dart';
 import '../screens/daftar_kebutuhan_screen.dart';
 import '../screens/edit_event_screen.dart';
@@ -9,7 +12,10 @@ import '../screens/event_list_screen.dart';
 import '../screens/form_kebutuhan_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/main_navigation_screen.dart';
+import '../screens/proposal_detail_screen.dart';
 import '../screens/register_screen.dart';
+import '../screens/saved_sponsors_screen.dart';
+import '../screens/sponsor_detail_screen.dart';
 import 'app_routes.dart';
 
 /// Generator rute terpusat untuk aplikasi SPONTAN.
@@ -87,6 +93,44 @@ class RouteGenerator {
         final event = settings.arguments as EventModel;
         return MaterialPageRoute(
           builder: (_) => FormKebutuhanScreen(event: event),
+          settings: settings,
+        );
+
+      // ── Modul 3 — Matching, Rekomendasi & Tracking ───────────────────────────
+
+      case AppRoutes.sponsorDetail:
+        if (settings.arguments is SponsorModel) {
+          final sponsor = settings.arguments as SponsorModel;
+          return MaterialPageRoute(
+            builder: (_) => SponsorDetailScreen(sponsor: sponsor),
+            settings: settings,
+          );
+        } else if (settings.arguments is Map<String, dynamic>) {
+          final args = settings.arguments as Map<String, dynamic>;
+          return MaterialPageRoute(
+            builder: (_) => SponsorDetailScreen(
+              sponsor: args['sponsor'] as SponsorModel,
+              score: args['score'] as MatchingScoreModel?,
+              event: args['event'] as EventModel?,
+            ),
+            settings: settings,
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => _RouteNotFoundScreen(routeName: settings.name),
+          settings: settings,
+        );
+
+      case AppRoutes.proposalDetail:
+        final proposal = settings.arguments as ProposalModel;
+        return MaterialPageRoute(
+          builder: (_) => ProposalDetailScreen(proposal: proposal),
+          settings: settings,
+        );
+
+      case AppRoutes.savedSponsors:
+        return MaterialPageRoute(
+          builder: (_) => const SavedSponsorsScreen(),
           settings: settings,
         );
 

@@ -1,276 +1,635 @@
 import 'package:flutter/material.dart';
 
 import '../core/constants/app_colors.dart';
+import '../models/app_constants.dart';
+import '../models/proposal_model.dart';
+import '../repositories/proposal_repository.dart';
+import 'event_detail_screen.dart';
+import 'proposal_detail_screen.dart';
 
+/// Layar Pelacakan Status Proposal (PRD v1.1 §1.6, §2.9, FR-M3-02, FR-M3-03, FR-M3-04).
 class ProposalScreen extends StatefulWidget {
-  const ProposalScreen({super.key});
+  final VoidCallback? onOpenProfile;
+
+  const ProposalScreen({super.key, this.onOpenProfile});
 
   @override
   State<ProposalScreen> createState() => _ProposalScreenState();
 }
 
-class _ProposalScreenState extends State<ProposalScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _ProposalScreenState extends State<ProposalScreen> {
+  final ProposalRepository _proposalRepo = ProposalRepository.instance;
 
-  final List<Map<String, dynamic>> _proposals = [
-    {
-      'id': 'PROP-001',
-      'sponsor': 'PT Telkom Indonesia',
-      'event': 'Seminar Teknologi Kampus',
-      'status': 'Accepted',
-      'tanggal': '14 Okt 2026',
-      'jenis': 'Dana & Media Partner',
-      'catatan': 'Disetujui. Dana sponsorship sebesar Rp 5.000.000 akan ditransfer.',
-    },
-    {
-      'id': 'PROP-002',
-      'sponsor': 'Bank Nagari',
-      'event': 'Seminar Teknologi Kampus',
-      'status': 'Accepted',
-      'tanggal': '12 Okt 2026',
-      'jenis': 'Dana',
-      'catatan': 'Disetujui paket Silver Sponsorship.',
-    },
-    {
-      'id': 'PROP-003',
-      'sponsor': 'Indofood Sukses Makmur',
-      'event': 'Festival Budaya Nusantara',
-      'status': 'Pending',
-      'tanggal': '15 Okt 2026',
-      'jenis': 'Barang (Konsumsi 300 paket)',
-      'catatan': 'Sedang direview oleh divisi CSR & Humas.',
-    },
-    {
-      'id': 'PROP-004',
-      'sponsor': 'Shopee Indonesia',
-      'event': 'Festival Budaya Nusantara',
-      'status': 'Draft',
-      'tanggal': '16 Okt 2026',
-      'jenis': 'Media Partner',
-      'catatan': 'Belum dikirim ke pihak sponsor.',
-    },
-    {
-      'id': 'PROP-005',
-      'sponsor': 'Gojek Padang',
-      'event': 'Lomba Mobile Apps Unand',
-      'status': 'Rejected',
-      'tanggal': '10 Okt 2026',
-      'jenis': 'Dana',
-      'catatan': 'Slot sponsorship kuartal IV sudah terpenuhi.',
-    },
+  List<ProposalModel> _proposals = [];
+  bool _isLoading = true;
+  String _selectedStatus = 'Semua';
+
+  // Urutan tab sesuai tampilan Figma: Semua, Draft, Pending, Accepted, Rejected, Cancelled
+  final List<String> _tabLabels = [
+    'Semua',
+    AppConstants.statusProposalDraft,
+    AppConstants.statusProposalPending,
+    AppConstants.statusProposalAccepted,
+    AppConstants.statusProposalRejected,
+    AppConstants.statusProposalCancelled,
   ];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _loadProposals();
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+  Future<void> _loadProposals() async {
+    setState(() => _isLoading = true);
+    final list = await _proposalRepo.getAll();
+    if (mounted) {
+      setState(() {
+        _proposals = list;
+        _isLoading = false;
+      });
+    }
   }
 
-  List<Map<String, dynamic>> _filterByStatus(String status) {
+  Future<void> _handleRefresh() async {
+    final list = await _proposalRepo.refreshProposalStatuses();
+    if (mounted) {
+      setState(() => _proposals = list);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.sync_rounded, color: Colors.white, size: 18),
+              SizedBox(width: 8),
+              Text('Status proposal berhasil disinkronkan dengan API.'),
+            ],
+          ),
+          backgroundColor: const Color(0xFF2563EB),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
+  }
+
+  List<ProposalModel> _filterByStatus(String status) {
     if (status == 'Semua') return _proposals;
-    return _proposals.where((p) => p['status'] == status).toList();
+    return _proposals
+        .where((p) => p.status.toLowerCase() == status.toLowerCase())
+        .toList();
+  }
+
+  int _getCountByStatus(String status) {
+    if (status == 'Semua') return _proposals.length;
+    return _proposals
+        .where((p) => p.status.toLowerCase() == status.toLowerCase())
+        .length;
+  }
+
+  Future<void> _navigateToDetail(ProposalModel proposal) async {
+    final isDataChanged = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProposalDetailScreen(proposal: proposal),
+      ),
+    );
+
+    if (isDataChanged == true && mounted) {
+      _loadProposals();
+    }
+  }
+
+  void _handleAjukanProposal() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 18),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const Text(
+              'Ajukan Proposal Sponsorship',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Pilih event untuk melihat rekomendasi sponsor yang cocok lalu ajukan proposal.',
+              style: TextStyle(
+                fontSize: 13,
+                color: Color(0xFF64748B),
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 18),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              tileColor: const Color(0xFFF8FAFC),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
+              ),
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.event_note, color: Color(0xFF2563EB), size: 22),
+              ),
+              title: const Text(
+                'Seminar Teknologi Kampus',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+              ),
+              subtitle: const Text('2 Mitra Terhubung • 12 Nov 2026'),
+              trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFF2563EB)),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const EventDetailScreen(
+                      initialJudul: 'Seminar Teknologi Kampus',
+                      initialTanggal: '12 Nov 2026',
+                      initialLokasi: 'Aula Fakultas',
+                      initialKategori: 'Seminar',
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 10),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              tileColor: const Color(0xFFF8FAFC),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
+              ),
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.music_note_rounded, color: Color(0xFF2563EB), size: 22),
+              ),
+              title: const Text(
+                'Festival Budaya Nusantara',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+              ),
+              subtitle: const Text('3 Mitra Terhubung • 28 Nov 2026'),
+              trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFF2563EB)),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const EventDetailScreen(
+                      initialJudul: 'Festival Budaya Nusantara',
+                      initialTanggal: '28 Nov 2026',
+                      initialLokasi: 'Lapangan Utama',
+                      initialKategori: 'Seni & Budaya',
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime? dt) {
+    if (dt == null) return '12 Nov 2026';
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+    ];
+    final day = dt.day.toString().padLeft(2, '0');
+    final month = months[(dt.month - 1).clamp(0, 11)];
+    return '$day $month ${dt.year}';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        title: const Text(
-          'Tracking Proposal',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.textSecondary,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-          indicatorColor: AppColors.primary,
-          indicatorWeight: 3,
-          tabs: const [
-            Tab(text: 'Semua (5)'),
-            Tab(text: 'Draft (1)'),
-            Tab(text: 'Pending (1)'),
-            Tab(text: 'Accepted (2)'),
-            Tab(text: 'Rejected (1)'),
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _handleRefresh,
+                color: const Color(0xFF2563EB),
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 1. TOP BAR (Logo Squircle Spontan di kiri, Avatar Profil di kanan)
+                      _buildTopBar(),
+                      const SizedBox(height: 18),
+
+                      // 2. STATUS FILTER PILLS: [Semua (6)]  [Draft]  [Pending] ...
+                      _buildStatusFilterPills(),
+                      const SizedBox(height: 18),
+
+                      // 3. DAFTAR KARTU PROPOSAL
+                      if (_isLoading)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 40),
+                          child: Center(
+                            child: CircularProgressIndicator(color: Color(0xFF2563EB)),
+                          ),
+                        )
+                      else
+                        _buildProposalCardsList(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // 4. TOMBOL BESAR BIRU DI BAWAH: "Ajukan Proposal" (Identik dengan tombol "Buat Event")
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: ElevatedButton(
+                  onPressed: _handleAjukanProposal,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2563EB),
+                    foregroundColor: Colors.white,
+                    elevation: 4,
+                    shadowColor: const Color(0xFF2563EB).withValues(alpha: 0.4),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(26),
+                    ),
+                  ),
+                  child: const Text(
+                    'Ajukan Proposal',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildProposalList(_filterByStatus('Semua')),
-          _buildProposalList(_filterByStatus('Draft')),
-          _buildProposalList(_filterByStatus('Pending')),
-          _buildProposalList(_filterByStatus('Accepted')),
-          _buildProposalList(_filterByStatus('Rejected')),
-        ],
       ),
     );
   }
 
-  Widget _buildProposalList(List<Map<String, dynamic>> items) {
+  // 1. Top Bar (Identik dengan Top Bar di event_list_screen & home_screen)
+  Widget _buildTopBar() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            // Logo Squircle Spontan
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              padding: const EdgeInsets.all(6),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.asset(
+                  'assets/images/logo.png',
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => const Icon(
+                    Icons.bolt_rounded,
+                    color: Color(0xFF2563EB),
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Daftar Proposal',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A),
+                letterSpacing: -0.3,
+              ),
+            ),
+          ],
+        ),
+
+        // Avatar Bulat Biru di kanan
+        InkWell(
+          onTap: widget.onOpenProfile,
+          borderRadius: BorderRadius.circular(22),
+          child: Container(
+            width: 42,
+            height: 42,
+            decoration: const BoxDecoration(
+              color: Color(0xFF2563EB),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.person_outline,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 2. Status Filter Pills (Capsule pill biru saat aktif, teks bersih saat tidak aktif)
+  Widget _buildStatusFilterPills() {
+    final countSemua = _getCountByStatus('Semua');
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        children: _tabLabels.map((status) {
+          final isSelected = _selectedStatus == status;
+          final label = status == 'Semua' ? 'Semua ($countSemua)' : status;
+
+          return Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  _selectedStatus = status;
+                });
+              },
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFF2563EB) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: isSelected ? Colors.white : const Color(0xFF475569),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // 3. Daftar Kartu Proposal
+  Widget _buildProposalCardsList() {
+    final items = _filterByStatus(_selectedStatus);
+
     if (items.isEmpty) {
-      return const Center(
-        child: Text(
-          'Tidak ada proposal pada status ini.',
-          style: TextStyle(color: AppColors.textSecondary),
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF1F5F9),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.description_outlined,
+                  size: 40,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Tidak ada proposal pada status ini.',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        final status = item['status'] as String;
+    return Column(
+      children: items.map((item) {
+        final status = item.status;
 
-        Color badgeColor;
+        // Visual Icon, Background, and Badges according to status and Figma
+        IconData leadingIcon;
+        Color leadingBgColor;
+        Color leadingIconColor;
+        Color badgeBgColor;
         Color badgeTextColor;
+        Color badgeDotColor;
+
         switch (status) {
-          case 'Accepted':
-            badgeColor = const Color(0xFFD1FAE5);
+          case AppConstants.statusProposalAccepted:
+            leadingIcon = Icons.check_circle_outline_rounded;
+            leadingBgColor = const Color(0xFFD1FAE5);
+            leadingIconColor = const Color(0xFF059669);
+            badgeBgColor = const Color(0xFFD1FAE5);
             badgeTextColor = const Color(0xFF059669);
+            badgeDotColor = const Color(0xFF059669);
             break;
-          case 'Pending':
-            badgeColor = const Color(0xFFFEF3C7);
-            badgeTextColor = const Color(0xFFD97706);
+          case AppConstants.statusProposalPending:
+            leadingIcon = Icons.emoji_events_outlined;
+            leadingBgColor = const Color(0xFFFEF3C7);
+            leadingIconColor = const Color(0xFFD97706);
+            badgeBgColor = const Color(0xFFFEF3C7);
+            badgeTextColor = const Color(0xFFB45309);
+            badgeDotColor = const Color(0xFFD97706);
             break;
-          case 'Rejected':
-            badgeColor = const Color(0xFFFEE2E2);
+          case AppConstants.statusProposalRejected:
+            leadingIcon = Icons.cancel_outlined;
+            leadingBgColor = const Color(0xFFFEE2E2);
+            leadingIconColor = const Color(0xFFDC2626);
+            badgeBgColor = const Color(0xFFFEE2E2);
             badgeTextColor = const Color(0xFFDC2626);
+            badgeDotColor = const Color(0xFFDC2626);
             break;
-          default:
-            badgeColor = const Color(0xFFF1F5F9);
+          case AppConstants.statusProposalDraft:
+            leadingIcon = Icons.description_outlined;
+            leadingBgColor = const Color(0xFFF1F5F9);
+            leadingIconColor = const Color(0xFF64748B);
+            badgeBgColor = const Color(0xFFF1F5F9);
             badgeTextColor = const Color(0xFF64748B);
+            badgeDotColor = const Color(0xFF64748B);
+            break;
+          case AppConstants.statusProposalCancelled:
+          default:
+            leadingIcon = Icons.block_flipped;
+            leadingBgColor = const Color(0xFFF1F5F9);
+            leadingIconColor = const Color(0xFF64748B);
+            badgeBgColor = const Color(0xFFF1F5F9);
+            badgeTextColor = const Color(0xFF64748B);
+            badgeDotColor = const Color(0xFF64748B);
+            break;
         }
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    item['id'],
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: badgeColor,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      status,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: badgeTextColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                item['sponsor'],
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+        final tanggalText = _formatDate(item.tanggalKirim);
+
+        return InkWell(
+          onTap: () => _navigateToDetail(item),
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Icon(Icons.event_note, size: 14, color: AppColors.primary),
-                  const SizedBox(width: 4),
-                  Text(
-                    item['event'],
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(height: 20, color: AppColors.border),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Bentuk: ${item['jenis']}',
-                    style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
-                  ),
-                  Text(
-                    item['tanggal'],
-                    style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
-                  ),
-                ],
-              ),
-              if (item['catatan'] != null && (item['catatan'] as String).isNotEmpty) ...[
-                const SizedBox(height: 8),
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Squircle Icon di kiri
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceMuted,
-                    borderRadius: BorderRadius.circular(8),
+                    color: leadingBgColor,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    leadingIcon,
+                    color: leadingIconColor,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 14),
+
+                // Kolom Tengah: Sponsor Name, Event Name, Tanggal
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.sponsorName ?? 'Sponsor Mitra',
+                        style: const TextStyle(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        item.eventName ?? 'Seminar Teknologi Kampus',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w400,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.calendar_today_outlined,
+                            size: 13,
+                            color: Color(0xFF64748B),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            tanggalText,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Badge Status di kanan atas: • Status
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: badgeBgColor,
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.info_outline, size: 14, color: AppColors.textSecondary),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          item['catatan'],
-                          style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: badgeDotColor,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        status,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: badgeTextColor,
                         ),
                       ),
                     ],
                   ),
                 ),
               ],
-            ],
+            ),
           ),
         );
-      },
+      }).toList(),
     );
   }
 }

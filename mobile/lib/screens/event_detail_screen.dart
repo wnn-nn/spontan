@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../core/constants/app_colors.dart';
+import '../core/utils/matching_calculator.dart';
+import '../models/app_constants.dart';
 import '../models/event_model.dart';
 import '../models/kebutuhan_model.dart';
+import '../models/proposal_model.dart';
+import '../models/sponsor_model.dart';
+import '../repositories/proposal_repository.dart';
+import '../repositories/sponsor_repository.dart';
 import 'edit_event_screen.dart';
 import 'form_kebutuhan_screen.dart';
+import 'proposal_detail_screen.dart';
+import 'sponsor_detail_screen.dart';
 
 class EventDetailScreen extends StatefulWidget {
   final EventModel? event;
@@ -31,13 +39,35 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   late List<KebutuhanModel> _kebutuhanList;
 
+  List<SponsorModel> _allSponsors = [];
+  List<ProposalModel> _eventProposals = [];
+  final Map<String, bool> _savedSponsorsMap = {};
+  bool _isLoadingModul3 = true;
+
+  EventModel get _effectiveEvent {
+    if (widget.event != null) return widget.event!;
+    return EventModel(
+      idEvent: 1,
+      idPembuat: 1,
+      judul: widget.initialJudul ?? 'Seminar Teknologi Kampus',
+      deskripsi: 'Seminar teknologi dan karir digital kampus...',
+      tanggalMulai: widget.initialTanggal ?? '2026-10-31',
+      tanggalSelesai: '2026-11-02',
+      lokasi: widget.initialLokasi ?? 'Auditorium Unand',
+      kategori: widget.initialKategori ?? 'Seminar',
+      estimasiPeserta: 500,
+      status: 'aktif',
+      targetAudiences: const ['Mahasiswa', 'Pelajar (SMA/SMK)'],
+    );
+  }
+
   @override
   void initState() {
     super.initState();
     _kebutuhanList = [
       KebutuhanModel(
         id: 'KB-001',
-        eventId: widget.event?.idEvent.toString() ?? '0',
+        eventId: widget.event?.idEvent.toString() ?? '1',
         jenis: 'Dana',
         deskripsi: 'Dana Operasional Pembicara',
         nilai: 5000000,
@@ -46,7 +76,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       ),
       KebutuhanModel(
         id: 'KB-002',
-        eventId: widget.event?.idEvent.toString() ?? '0',
+        eventId: widget.event?.idEvent.toString() ?? '1',
         jenis: 'Barang',
         deskripsi: 'Konsumsi 500 Snack Box',
         nilai: 7500000,
@@ -55,7 +85,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       ),
       KebutuhanModel(
         id: 'KB-003',
-        eventId: widget.event?.idEvent.toString() ?? '0',
+        eventId: widget.event?.idEvent.toString() ?? '1',
         jenis: 'Media Partner',
         deskripsi: 'Publikasi Media Sosial',
         nilai: 0,
@@ -63,6 +93,28 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         status: 'Terpenuhi',
       ),
     ];
+    _loadModul3Data();
+  }
+
+  Future<void> _loadModul3Data() async {
+    final sponsors = await SponsorRepository.instance.getAll();
+    final eventId = _effectiveEvent.idEvent.toString();
+    final proposals = await ProposalRepository.instance.getByEvent(eventId);
+
+    final Map<String, bool> savedMap = {};
+    for (final s in sponsors) {
+      savedMap[s.idSponsor] =
+          await SponsorRepository.instance.isSponsorSaved(eventId, s.idSponsor);
+    }
+
+    if (mounted) {
+      setState(() {
+        _allSponsors = sponsors;
+        _eventProposals = proposals;
+        _savedSponsorsMap.addAll(savedMap);
+        _isLoadingModul3 = false;
+      });
+    }
   }
 
   Future<void> _navigateToAddKebutuhan() async {
@@ -757,32 +809,52 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     }
 
     if (_activeTab == 'Sponsor') {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0xFFF1F5F9)),
+      return _buildSponsorTab();
+    }
+
+    // Tab Proposal (Tracking status proposal terhubung)
+    return _buildProposalTab();
+  }
+
+  Future<void> _handleToggleSaveSponsor(String sponsorId) async {
+    final eventId = _effectiveEvent.idEvent.toString();
+    final isSaved = await SponsorRepository.instance.toggleSaveSponsor(eventId, sponsorId);
+    if (mounted) {
+      setState(() {
+        _savedSponsorsMap[sponsorId] = isSaved;
+      });
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isSaved
+                ? 'Sponsor berhasil disimpan ke daftar sasaran!'
+                : 'Sponsor dihapus dari sasaran.',
+          ),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
-        child: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Rekomendasi Sponsor Teratas (Modul 3)',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-            ),
-            SizedBox(height: 12),
-            Text(
-              'Berdasarkan kategori "Seminar" dan target "Mhs Nasional", terdapat 3 calon sponsor dengan tingkat kecocokan tinggi.',
-              style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B), height: 1.4),
-            ),
-          ],
+      );
+    }
+  }
+
+  Widget _buildSponsorTab() {
+    if (_isLoadingModul3) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: CircularProgressIndicator(color: AppColors.primary),
         ),
       );
     }
 
-    // Tab Proposal
+    final recommendations = MatchingCalculator.calculateRecommendations(
+      event: _effectiveEvent,
+      allSponsors: _allSponsors,
+      kebutuhanList: _kebutuhanList,
+    );
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -790,19 +862,394 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: const Color(0xFFF1F5F9)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Proposal Terhubung (2)',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Rekomendasi Sponsor',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '${recommendations.length} Cocok',
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: 10),
+          const SizedBox(height: 6),
           Text(
-            '• PT Telkom Indonesia (Status: Accepted)\n• Bank Nagari (Status: Accepted)',
-            style: TextStyle(fontSize: 13, height: 1.6, color: Color(0xFF334155)),
+            'Kalkulasi otomatis (P1: Kategori 40 poin + P2: Audience 30 poin + P3: Kebutuhan 30 poin). Ambang tampil Skor \u2265 40.',
+            style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), height: 1.4),
           ),
+          const SizedBox(height: 14),
+
+          if (recommendations.isEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: const Center(
+                child: Text(
+                  'Belum ada sponsor yang mencapai ambang kecocokan (\u2265 40 poin). Coba tambahkan variasi kebutuhan sponsorship event.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
+              ),
+            ),
+          ] else ...[
+            ...recommendations.map((rec) {
+              final sponsor = rec.sponsor!;
+              final isSaved = _savedSponsorsMap[sponsor.idSponsor] == true;
+
+              Color badgeColor;
+              Color badgeTextColor;
+              if (rec.score >= 75) {
+                badgeColor = const Color(0xFFD1FAE5);
+                badgeTextColor = const Color(0xFF059669);
+              } else if (rec.score >= 50) {
+                badgeColor = const Color(0xFFFEF3C7);
+                badgeTextColor = const Color(0xFFD97706);
+              } else {
+                badgeColor = const Color(0xFFFEE2E2);
+                badgeTextColor = const Color(0xFFDC2626);
+              }
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        // Avatar Initials
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: sponsor.avatarBg,
+                            shape: BoxShape.circle,
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            sponsor.initials,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                              color: sponsor.avatarColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                sponsor.namaBrand,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                sponsor.industri,
+                                style: const TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontSize: 11.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: isSaved ? 'Hapus bookmark' : 'Simpan bookmark',
+                          icon: Icon(
+                            isSaved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
+                            color: isSaved ? const Color(0xFFF59E0B) : const Color(0xFF94A3B8),
+                            size: 22,
+                          ),
+                          onPressed: () => _handleToggleSaveSponsor(sponsor.idSponsor),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    // Alasan matching
+                    Text(
+                      rec.alasanMatching,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF2563EB),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Progress & Score row
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: rec.scoreFraction,
+                              backgroundColor: const Color(0xFFE2E8F0),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                rec.score >= 75
+                                    ? const Color(0xFF10B981)
+                                    : (rec.score >= 50
+                                        ? const Color(0xFFF59E0B)
+                                        : const Color(0xFFEF4444)),
+                              ),
+                              minHeight: 5,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: badgeColor,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '${rec.label} (${rec.score}%)',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: badgeTextColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    // Tombol Detail Profil Sponsor
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          side: const BorderSide(color: Color(0xFF2563EB)),
+                        ),
+                        onPressed: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => SponsorDetailScreen(
+                                sponsor: sponsor,
+                                score: rec,
+                                event: _effectiveEvent,
+                              ),
+                            ),
+                          );
+                          _loadModul3Data();
+                        },
+                        child: const Text(
+                          'Lihat Analisis & Profil Sponsor',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF2563EB),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProposalTab() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Proposal Terhubung',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '${_eventProposals.length} Diajukan',
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          if (_eventProposals.isEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: const Center(
+                child: Text(
+                  'Belum ada proposal yang diajukan untuk event ini.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
+              ),
+            ),
+          ] else ...[
+            ..._eventProposals.map((p) {
+              Color badgeColor;
+              Color badgeTextColor;
+              switch (p.status) {
+                case AppConstants.statusProposalAccepted:
+                  badgeColor = const Color(0xFFD1FAE5);
+                  badgeTextColor = const Color(0xFF059669);
+                  break;
+                case AppConstants.statusProposalPending:
+                  badgeColor = const Color(0xFFFEF3C7);
+                  badgeTextColor = const Color(0xFFD97706);
+                  break;
+                case AppConstants.statusProposalRejected:
+                  badgeColor = const Color(0xFFFEE2E2);
+                  badgeTextColor = const Color(0xFFDC2626);
+                  break;
+                case AppConstants.statusProposalCancelled:
+                  badgeColor = const Color(0xFFF1F5F9);
+                  badgeTextColor = const Color(0xFF64748B);
+                  break;
+                default:
+                  badgeColor = const Color(0xFFF1F5F9);
+                  badgeTextColor = const Color(0xFF64748B);
+              }
+
+              return InkWell(
+                onTap: () async {
+                  final changed = await Navigator.push<bool>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ProposalDetailScreen(proposal: p),
+                    ),
+                  );
+                  if (changed == true) {
+                    _loadModul3Data();
+                  }
+                },
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.description_outlined, color: AppColors.primary, size: 28),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              p.sponsorName ?? 'Sponsor Mitra',
+                              style: const TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'ID: ${p.id} • ${p.jenisKebutuhan ?? "Dana"}',
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: badgeColor,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          p.status,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: badgeTextColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
         ],
       ),
     );
