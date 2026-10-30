@@ -221,21 +221,17 @@ void main() {
       );
       await repo.add(newProposal);
 
-      expect(
-        () async => await repo.cancelProposal(
-          newProposal.id,
-          '   ',
-        ),
+      // Alasan hanya spasi -> setelah trim menjadi kosong
+      await expectLater(
+        () => repo.cancelProposal(newProposal.id, '   '),
         throwsA(isA<ArgumentError>()),
       );
 
-      expect(
-        () async => await repo.cancelProposal(
-          newProposal.id,
-          'batal', // < 5 huruf yang bermakna jika whitespace di-trim
-        ),
+      // Alasan 4 karakter (< 5)
+      await expectLater(
+        () => repo.cancelProposal(newProposal.id, 'bata'),
         throwsA(isA<ArgumentError>()),
       );
     });
-  });
+});
 }
