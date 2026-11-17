@@ -101,7 +101,7 @@ Data pengajuan sponsorship yang dikirim mahasiswa ke sponsor tertentu.
 * `isi_proposal` (String): Surat pengantar / cover letter / pesan mahasiswa ke sponsor.
 * `file_dokumen` (String): File path / URL dokumen proposal (Format PDF).
 * `status` (String): Status pengajuan (`draft`, `pending`, `accepted`, `rejected`, `cancelled`).
-* `alasan_pembatalan` (String?): Catatan atau alasan pembatalan proposal yang diinputkan oleh mahasiswa saat membatalkan proposal berstatus pending (FR-M3-03).
+* `alasan_pembatalan` (String?): Catatan atau alasan pembatalan proposal yang diinputkan oleh mahasiswa saat membatalkan proposal berstatus pending (FR-M3-05).
 * `tanggal_kirim` (DateTime?): Waktu proposal dikirim (diisi saat status berubah ke pending).
 * `catatan_sponsor` (String?): Feedback atau alasan persetujuan/penolakan dari sponsor (berasal dari API).
 * `status_diperbarui_pada` (DateTime?): Timestamp terakhir status diubah oleh API atau saat dibatalkan oleh mahasiswa.
@@ -112,7 +112,8 @@ Bookmark sponsor sasaran yang disimpan mahasiswa per event untuk difollow-up.
 * `id_user` (String/Int): Relasi ke `User`.
 * `id_event` (String/Int): Relasi ke `Event`.
 * `id_sponsor` (String/Int): Relasi ke `Sponsor`.
-* `created_at` (DateTime): Waktu penyimpanan.
+* `catatan` (String?): Catatan kustom mahasiswa untuk rekomendasi sponsor yang di-bookmark. Nilai awal (default) adalah `null`. Pada antarmuka pengguna (UI) disediakan icon edit yang ketika ditekan memungkinkan mahasiswa mengisi catatan dan menyimpannya di kolom ini. Catatan ini juga dapat dihapus sewaktu-waktu dengan mengembalikan nilainya menjadi `null` (FR-M3-03).
+* `created_at` (DateTime): Waktu penambahan bookmark.
 
 ### 1.8 Entitas `Notifikasi` (Lintas Modul)
 Riwayat notifikasi internal aplikasi.
@@ -138,7 +139,7 @@ Berikut pembagian ketat untuk form input pengguna:
 | | `program_studi` | **Wajib** | Konteks akademik |
 | | `email` | **Wajib** | Kredensial login & notifikasi |
 | | `password` | **Wajib** | Autentikasi keamanan akun |
-| | `foto_profil` | *Opsional* | Boleh menggunakan default avatar avatar |
+| | `foto_profil` | *Opsional* | Boleh menggunakan default avatar |
 | **Modul 1 - Form Event** | `judul` | **Wajib** | Identitas acara |
 | | `deskripsi` | **Wajib** | Penjelasan event untuk calon sponsor |
 | | `kategori` | **Wajib** | Kritis untuk komputasi Matching Score (P1: 40 poin) |
@@ -155,7 +156,9 @@ Berikut pembagian ketat untuk form input pengguna:
 | **Modul 2 - Form Proposal** | `id_event` & `id_sponsor` | **Wajib** | Relasi data pengajuan |
 | | `isi_proposal` | **Wajib** | Surat pengantar singkat dari mahasiswa |
 | | `file_dokumen` | **Wajib** | Berkas proposal lengkap (format PDF) |
-| **Modul 3 - Form Pembatalan Proposal** | `alasan_pembatalan` | **Wajib** | Alasan pembatalan oleh mahasiswa saat memperbarui status proposal pending menjadi cancelled (FR-M3-03) |
+| **Modul 3 - Bookmark & Catatan** | `id_event` & `id_sponsor` | **Wajib** | Relasi penambahan atau penghapusan bookmark sponsor sasaran (FR-M3-01 Create, FR-M3-04 Delete) |
+| | `catatan` | *Opsional* | Catatan kustom mahasiswa pada sponsor sasaran yang di-bookmark. Nilai awal adalah `null`. Di antarmuka pengguna (UI) terdapat icon edit untuk mengisi dan menyimpan catatan, dan dapat dihapus dengan mengembalikan nilai `null` (FR-M3-03 Update) |
+| **Modul 3 - Form Pembatalan Proposal** | `alasan_pembatalan` | **Wajib** | Alasan pembatalan oleh mahasiswa saat memperbarui status proposal pending menjadi cancelled (FR-M3-05 Update) |
 | **Data Respon API** | `catatan_sponsor` | *Opsional* | Diisi dari API jika sponsor memberikan feedback saat update status |
 
 ---
@@ -193,14 +196,14 @@ Berikut pembagian ketat untuk form input pengguna:
      - Minimal mengandung 10 huruf alfabet dan memiliki huruf vokal.
 3. **Kategori Event:**
    - Wajib dipilih dari daftar baku: `Seminar`, `Kompetisi`, `PKM`, `Kegiatan Organisasi`, `Lainnya`. Tidak boleh teks bebas.
-3. **Target Audience:**
+4. **Target Audience:**
    - Wajib dipilih dari daftar baku: `Mahasiswa`, `Pelajar (SMA/SMK)`, `Masyarakat Umum`, `Komunitas/Profesional`.
-4. **Estimasi Peserta:**
+5. **Estimasi Peserta:**
    - Wajib berupa angka integer positif (`estimasi_peserta >= 10`).
-5. **Tanggal Mulai & Selesai:**
+6. **Tanggal Mulai & Selesai:**
    - `tanggal_mulai` tidak boleh sebelum hari ini (`tanggal_mulai >= DateTime.now() - 1 hari`).
    - `tanggal_selesai` harus sama dengan atau setelah `tanggal_mulai` (`tanggal_selesai >= tanggal_mulai`).
-6. **Upload Poster Event (Kamera/Galeri):**
+7. **Upload Poster Event (Kamera/Galeri):**
    - Format file didukung: `.jpg`, `.jpeg`, `.png`.
    - Ukuran maksimal: 5 MB.
 
@@ -221,11 +224,21 @@ Berikut pembagian ketat untuk form input pengguna:
    - Wajib berekstensi `.pdf`.
    - Ukuran maksimal: 10 MB.
 
-#### E. Form / Dialog Pembatalan Proposal (Modul 3 - FR-M3-03)
-1. **Alasan Pembatalan:**
-   - Wajib diisi saat mahasiswa memperbarui status proposal `pending` menjadi `cancelled`.
+#### E. Form / Dialog Catatan Bookmark (Modul 3 - FR-M3-03 Update)
+1. **Kolom Catatan (`catatan`):**
+   - Nilai awal (default): `null`.
+   - Pada kartu/item rekomendasi sponsor yang telah di-bookmark, disediakan **icon edit** (pensil).
+   - Menekan icon edit akan membuka dialog modal untuk mengisi atau mengubah catatan.
+   - Karakter: Maksimal 500 karakter.
+   - Aksi Simpan: Menyimpan input teks ke kolom `catatan` pada tabel `sponsor_tersimpan`.
+   - Aksi Hapus Catatan: Mengosongkan teks akan mengembalikan nilai kolom `catatan` menjadi `null`.
+
+#### F. Form / Dialog Pembatalan Proposal Pending (Modul 3 - FR-M3-05 Update)
+1. **Alasan Pembatalan (`alasan_pembatalan`):**
+   - Wajib diisi saat mahasiswa memperbarui status proposal `pending` menjadi `cancelled` (FR-M3-05).
    - Minimal 5 karakter, maksimal 500 karakter.
    - Tidak boleh hanya berupa spasi kosong / whitespace.
+   - Nilai tersimpan secara permanen pada entitas proposal (`alasan_pembatalan`) dan tetap dipertahankan untuk histori pelacakan status.
 
 ---
 
@@ -241,11 +254,21 @@ Berikut pembagian ketat untuk form input pengguna:
    - Setiap kali kebutuhan sponsorship ditambah, diubah jenisnya, atau dihapus, sistem **otomatis menghitung ulang Matching Score** (parameter P3).
 4. **Aturan Hapus Proposal (FR-M2-04):**
    - Mahasiswa hanya dapat menghapus proposal yang masih berstatus `draft`.
-5. **Aturan Pembatalan Proposal (FR-M3-03 & FR-M3-04):**
-   - Mahasiswa hanya dapat membatalkan proposal yang masih berstatus `pending` (FR-M3-04).
-   - Pembatalan proposal memperbarui status proposal menjadi `cancelled` serta **wajib menyertakan inputan alasan pembatalan** oleh mahasiswa (FR-M3-03).
+5. **Aturan Tambah Bookmark Rekomendasi (FR-M3-01):**
+   - Mahasiswa dapat menambahkan (menyimpan) rekomendasi sponsor ke dalam daftar bookmark sponsor sasaran.
+   - Saat bookmark ditambahkan, record `SponsorTersimpan` dibuat dengan nilai kolom `catatan` default adalah `null`.
+6. **Aturan Kelola Kolom Catatan Bookmark (FR-M3-03):**
+   - Pada setiap item rekomendasi sponsor yang di-bookmark, disediakan **icon edit**.
+   - Ketika icon edit ditekan, sistem membuka dialog modal pengisian catatan. Mahasiswa dapat mengisi teks catatan (misal: strategi follow up, CP alternatif, dll.) dan menyimpannya ke kolom `catatan`.
+   - Catatan ini dapat dihapus sewaktu-waktu oleh mahasiswa, dan sistem akan mengembalikan nilai kolom `catatan` menjadi `null`.
+7. **Aturan Hapus Bookmark (FR-M3-04):**
+   - Mahasiswa dapat menghapus sponsor dari daftar bookmark sasaran.
+   - Aksi ini menghapus data relasi pada entitas `SponsorTersimpan` secara permanen (termasuk kolom catatan yang melekat).
+8. **Aturan Pembatalan Proposal Pending (FR-M3-05):**
+   - Mahasiswa hanya dapat membatalkan proposal yang masih berstatus `pending`.
+   - Pembatalan proposal memperbarui status proposal menjadi `cancelled` serta **wajib menyertakan inputan alasan pembatalan** (`alasan_pembatalan`) oleh mahasiswa.
    - Proposal yang sudah berstatus `accepted`, `rejected`, atau `cancelled` bersifat **final** dan tidak dapat dibatalkan atau diubah statusnya kembali oleh mahasiswa.
-6. **Aturan Matching Score (PRD §2.8):**
+9. **Aturan Matching Score (PRD §2.8):**
    - Rumus: $\text{Score} = P1 + P2 + P3$
    - $P1$ (Kategori): $40$ jika match, $0$ jika tidak.
    - $P2$ (Target Audience): $30$ jika match, $0$ jika tidak.
@@ -257,9 +280,9 @@ Berikut pembagian ketat untuk form input pengguna:
      - $40 - 49$: **Rendah**
      - $< 40$: Tidak ditampilkan.
    - **Urutan Tampil:** Skor tertinggi ke terendah, lalu alfabet nama brand ($A-Z$).
-7. **Aturan Status Proposal Berbasis API (PRD §2.9):**
+10. **Aturan Status Proposal Berbasis API (PRD §2.9):**
    - Aplikasi mahasiswa membaca (*read-only*) status `accepted` dan `rejected` dari API.
-   - Mahasiswa dapat memperbarui status proposal dari `pending` menjadi `cancelled` melalui aplikasi dengan menyertakan inputan alasan pembatalan (FR-M3-03).
+   - Mahasiswa dapat memperbarui status proposal dari `pending` menjadi `cancelled` melalui aplikasi dengan menyertakan inputan alasan pembatalan (FR-M3-05).
    - Aplikasi mengambil update saat: (1) aplikasi baru dibuka, dan (2) pengguna melakukan *pull-to-refresh*.
    - Jika terdeteksi perubahan status dari `pending` ke `accepted`/`rejected`, sistem memicu Notifikasi Lokal dalam waktu $\le 5$ detik (NFR-05).
    - Jika API offline saat refresh, tampilkan Snackbar peringatan dan pertahankan data offline terakhir di layar (NFR-06).
@@ -327,20 +350,27 @@ enum ViewStatus { initial, loading, success, empty, error }
   * `pickProposalDocument()`: Membuka FilePicker perangkat untuk memilih PDF.
   * `submitProposal(ProposalPayload)`: Mengirim proposal ke API dengan status awal `pending`.
   * `deleteDraftProposal(idProposal)`
-  * `cancelPendingProposal(idProposal, alasanPembatalan)`: Memperbarui status proposal pending menjadi cancelled dengan menyertakan alasan pembatalan (FR-M3-03).
+  * `cancelPendingProposal(idProposal, alasanPembatalan)`: Memperbarui status proposal pending menjadi cancelled dengan menyertakan alasan pembatalan (FR-M3-05).
 
-#### D. Modul 3: Matching & Tracking State (`MatchingProvider` & `TrackingProvider` - Anggun)
+#### D. Modul 3: Matching, Rekomendasi, Bookmark & Tracking State (`MatchingProvider`, `SavedSponsorProvider`, & `TrackingProvider` - Anggun)
 * **Variabel State:**
-  * `recommendations`: List `MatchingScore` terurut untuk event aktif.
-  * `savedSponsors`: List `SponsorTersimpan` milik mahasiswa.
-  * `trackingList`: List proposal aktif yang sedang dipantau statusnya.
-  * `matchingStatus`: `ViewStatus`.
-  * `isRefreshing`: Boolean status saat pull-to-refresh.
+  * `recommendations`: List `MatchingScore` terurut untuk event aktif (FR-M3-02 Read).
+  * `savedSponsors`: List `SponsorTersimpan` milik mahasiswa, lengkap dengan relasi data `Sponsor` dan field `catatan` (FR-M3-02 Read).
+  * `trackingList`: List proposal aktif yang sedang dipantau status siklus hidupnya (FR-M3-02 Read).
+  * `activeEditingBookmark`: Objek `SponsorTersimpan?` yang sedang dibuka dialog edit catatannya.
+  * `matchingStatus`: `ViewStatus` untuk proses komputasi & pengambilan rekomendasi.
+  * `savedStatus`: `ViewStatus` untuk pengambilan & mutasi bookmark sponsor.
+  * `trackingStatus`: `ViewStatus` untuk pelacakan status proposal.
+  * `isRefreshing`: Boolean status saat pull-to-refresh status proposal.
 * **Method Aksi:**
   * `calculateMatching(idEvent)`: Menjalankan kalkulasi rule-based P1, P2, P3 berdasarkan data event & kebutuhan.
-  * `fetchRecommendations(idEvent)`: Mengambil daftar rekomendasi sponsor (Score $\ge 40$).
-  * `toggleSaveSponsor(idEvent, idSponsor)`: Menambah/menghapus sponsor dari daftar sasaran (FR-M3-01).
-  * `cancelProposal(idProposal, alasanPembatalan)`: Memperbarui status proposal pending menjadi cancelled serta menyimpan inputan alasan pembatalan ke backend (FR-M3-03 & FR-M3-04).
+  * `fetchRecommendations(idEvent)`: Mengambil daftar rekomendasi sponsor (Score $\ge 40$) (FR-M3-02 Read).
+  * `fetchSavedSponsors(idEvent)`: Mengambil daftar sponsor yang di-bookmark beserta catatan kustomnya (FR-M3-02 Read).
+  * `fetchTrackingProposals()`: Mengambil daftar proposal mahasiswa untuk pelacakan status pengajuan (FR-M3-02 Read).
+  * `addBookmark(idEvent, idSponsor)`: Menambahkan sponsor ke bookmark/daftar sasaran dengan nilai awal `catatan = null` (FR-M3-01 Create).
+  * `updateBookmarkNote(idBookmark, String? catatan)`: Mengisi atau memperbarui kolom `catatan` pada bookmark melalui dialog edit catatan; jika dihapus atau input dikosongkan, nilai disimpan kembali sebagai `null` (FR-M3-03 Update).
+  * `deleteBookmark(idBookmark)`: Menghapus sponsor dari daftar bookmark (FR-M3-04 Delete).
+  * `cancelProposal(idProposal, String alasanPembatalan)`: Memperbarui status proposal pending menjadi `cancelled` serta menyimpan inputan alasan pembatalan ke backend (FR-M3-05 Update).
   * `refreshProposalStatuses()`: Memanggil endpoint API untuk mengambil status proposal terbaru, membandingkan status lama vs baru, dan memicu notifikasi jika ada perubahan status.
 
 #### E. Modul Notifikasi (`NotificationProvider`)
@@ -379,9 +409,13 @@ Aplikasi menggunakan alur navigasi terpusat dengan `Named Routes` atau direct `M
        ┌───────────────────────┼────────────────────────┐
        ▼                       ▼                        ▼
 [Detail Event]           [Detail Sponsor]        [Detail Proposal]
- ├── Edit Event           ├── Rincian Skor P1-P3  ├── Info Status & Catatan
- ├── Kelola Kebutuhan     ├── Bookmark Sponsor    └── Batalkan Proposal (Dialog Input Alasan)
- └── Ajukan Proposal      └── Ajukan Proposal         └── Update Status: Cancelled
+ ├── Edit Event           ├── Rincian Skor P1-P3  ├── Info Status & Catatan Sponsor
+ ├── Kelola Kebutuhan     ├── Bookmark / Hapus    └── Batalkan Proposal (Dialog Input Alasan)
+ └── Ajukan Proposal      │   (FR-M3-01, FR-M3-04)    └── Update Status: Cancelled (FR-M3-05)
+                          ├── Icon Edit Catatan
+                          │   └── [Dialog Edit Catatan]
+                          │       (FR-M3-03: Simpan / Null)
+                          └── Ajukan Proposal
        │
        ▼
  [Form Kirim Proposal] ──► (Upload PDF) ──► (Kirim: Pending)
@@ -399,11 +433,11 @@ Aplikasi menggunakan alur navigasi terpusat dengan `Named Routes` atau direct `M
 | `/event-detail` | `EventDetailScreen` | `String idEvent` | `bool? isDataChanged` | Jika true, refresh list event di halaman induk |
 | `/event-form` | `EventFormScreen` | `Event? existingEvent` | `bool? isSaved` | Jika true: SnackBar "Event berhasil disimpan" + reload event list |
 | `/kebutuhan-form`| `KebutuhanFormScreen`| `String idEvent, Kebutuhan? item` | `bool? isSaved` | Jika true: SnackBar "Kebutuhan diperbarui" + reload matching score |
-| `/sponsor-detail`| `SponsorDetailScreen`| `Sponsor sponsor, MatchingScore? score` | - | Aksi bookmark / lanjut ke form pengajuan proposal |
+| `/sponsor-detail`| `SponsorDetailScreen`| `Sponsor sponsor, MatchingScore? score` | `bool? isBookmarkChanged` | Menampilkan rincian matching P1-P3 (FR-M3-02), tombol tambah/hapus bookmark (FR-M3-01/04), icon edit catatan jika di-bookmark (FR-M3-03), atau lanjut form pengajuan proposal |
 | `/proposal-form` | `ProposalFormScreen`| `Event event, Sponsor sponsor` | `bool? isSubmitted` | Jika true: SnackBar "Proposal berhasil diajukan!" $\rightarrow$ Navigasi ke Tab Tracking |
-| `/proposal-detail`|`ProposalDetailScreen`| `String idProposal` | `bool? isCancelled` | Jika true: SnackBar "Proposal berhasil dibatalkan (Status: Cancelled)" + refresh data |
+| `/proposal-detail`|`ProposalDetailScreen`| `String idProposal` | `bool? isCancelled` | Jika true: SnackBar "Proposal berhasil dibatalkan (Status: Cancelled)" + refresh data tracking. Menampilkan info status, catatan sponsor dari API, dan dialog input alasan pembatalan jika status pending (FR-M3-05 Update) |
 | `/notifications` | `NotificationScreen` | Tidak ada | - | Mark all as read saat dibuka |
-| `/saved-sponsors`| `SavedSponsorsScreen`| Tidak ada | - | Tampilkan daftar sponsor sasaran |
+| `/saved-sponsors`| `SavedSponsorsScreen`| `String? idEvent` | `bool? isDataChanged` | Menampilkan daftar sponsor sasaran (FR-M3-02 Read) beserta kolom catatan, icon edit catatan (FR-M3-03: input/simpan/hapus ke null), dan tombol hapus bookmark (FR-M3-04) |
 
 ---
 
@@ -494,19 +528,26 @@ lib/
 │   │           ├── match_reason_card.dart     # Rincian parameter cocok/tidak cocok
 │   │           └── sponsor_card.dart
 │   │
-│   ├── tracking/                  # MODUL 3B: TRACKING STATUS PROPOSAL (Anggun Meika Candra)
+│   ├── tracking/                  # MODUL 3B: TRACKING STATUS PROPOSAL & PEMBATALAN (Anggun Meika Candra)
 │   │   ├── presentation/
 │   │   │   ├── tracking_provider.dart
-│   │   │   ├── tracking_screen.dart           # Layar status proposal (Pending/Accepted/Rejected)
+│   │   │   ├── tracking_screen.dart           # Layar status proposal (Pending/Accepted/Rejected/Cancelled - FR-M3-02 Read)
 │   │   │   ├── proposal_detail_screen.dart    # Detail status, catatan sponsor dari API
 │   │   │   └── widgets/
 │   │   │       ├── status_timeline.dart       # Komponen visual progres pengajuan
-│   │   │       └── status_badge.dart
+│   │   │       ├── status_badge.dart
+│   │   │       └── cancel_proposal_dialog.dart# Modal dialog alasan pembatalan proposal pending (FR-M3-05 Update)
 │   │
-│   ├── saved_sponsor/             # MODUL 3C: SPONSOR SASARAN/BOOKMARK (Anggun Meika Candra)
+│   ├── saved_sponsor/             # MODUL 3C: SPONSOR SASARAN / BOOKMARK & CATATAN (Anggun Meika Candra)
+│   │   ├── data/
+│   │   │   ├── saved_sponsor_model.dart       # Model SponsorTersimpan dengan kolom catatan (nullable)
+│   │   │   └── saved_sponsor_repository.dart  # Repository API CRUD bookmark & catatan
 │   │   └── presentation/
-│   │       ├── saved_sponsor_screen.dart
-│   │       └── saved_sponsor_provider.dart
+│   │       ├── saved_sponsor_provider.dart    # State provider CRUD bookmark & catatan
+│   │       ├── saved_sponsor_screen.dart      # Layar daftar sponsor sasaran (FR-M3-02 Read)
+│   │       └── widgets/
+│   │           ├── saved_sponsor_card.dart    # Kartu bookmark dengan teks catatan & icon edit (FR-M3-03)
+│   │           └── edit_note_dialog.dart      # Modal dialog isi catatan / hapus catatan ke null (FR-M3-03 Update)
 │   │
 │   └── notification/              # NOTIFIKASI SISTEM
 │       ├── data/
@@ -580,6 +621,39 @@ CREATE TABLE event_target_audiences (
   UNIQUE KEY unique_event_audience (id_event, target_audience),
   FOREIGN KEY (id_event) REFERENCES events(id_event) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- 4. Tabel sponsor_tersimpan (Modul 3: Bookmark & Kolom Catatan)
+CREATE TABLE sponsor_tersimpan (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  id_user INT NOT NULL,
+  id_event INT NOT NULL,
+  id_sponsor INT NOT NULL,
+  catatan TEXT NULL DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_user_event_sponsor (id_user, id_event, id_sponsor),
+  FOREIGN KEY (id_user) REFERENCES users(id_user) ON DELETE CASCADE,
+  FOREIGN KEY (id_event) REFERENCES events(id_event) ON DELETE CASCADE,
+  FOREIGN KEY (id_sponsor) REFERENCES sponsors(id_sponsor) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 5. Tabel proposals (Modul 2 & 3: Proposal & Pembatalan Status)
+CREATE TABLE proposals (
+  id_proposal INT AUTO_INCREMENT PRIMARY KEY,
+  id_event INT NOT NULL,
+  id_sponsor INT NOT NULL,
+  id_pengirim INT NOT NULL,
+  isi_proposal TEXT NOT NULL,
+  file_dokumen VARCHAR(255) NOT NULL,
+  status ENUM('draft', 'pending', 'accepted', 'rejected', 'cancelled') DEFAULT 'draft',
+  alasan_pembatalan TEXT NULL DEFAULT NULL,
+  catatan_sponsor TEXT NULL DEFAULT NULL,
+  tanggal_kirim DATETIME NULL,
+  status_diperbarui_pada DATETIME NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (id_event) REFERENCES events(id_event) ON DELETE CASCADE,
+  FOREIGN KEY (id_sponsor) REFERENCES sponsors(id_sponsor) ON DELETE CASCADE,
+  FOREIGN KEY (id_pengirim) REFERENCES users(id_user) ON DELETE CASCADE
+) ENGINE=InnoDB;
 ```
 
 #### C. Endpoint API Spesifik
@@ -630,6 +704,24 @@ CREATE TABLE event_target_audiences (
      - `id_pembuat` diekstrak dari JWT token (`req.user.id_user`), BUKAN dari payload client!
      - `status` otomatis di-set ke `'draft'`.
      - Menggunakan **Database Transaction** (`START TRANSACTION`, `INSERT INTO events`, bulk `INSERT INTO event_target_audiences`, `COMMIT`). Jika salah satu gagal $\rightarrow$ `ROLLBACK`.
+7. `POST /api/saved-sponsors` (Protected with Bearer Token - FR-M3-01 Create)
+   - Request Body: `{ id_event, id_sponsor }`
+   - Response: `{ message: "Sponsor berhasil disimpan ke bookmark", bookmark: { id, id_user, id_event, id_sponsor, catatan: null } }`
+8. `GET /api/saved-sponsors` (Protected with Bearer Token - FR-M3-02 Read)
+   - Query Params: `?id_event=...`
+   - Response: Array bookmark sponsor sasaran lengkap dengan detail brand, skor matching, dan field `catatan`.
+9. `PATCH /api/saved-sponsors/:id/note` (Protected with Bearer Token - FR-M3-03 Update)
+   - Request Body: `{ catatan: "Catatan baru" }` atau `{ catatan: null }` untuk mengosongkan/menghapus catatan.
+   - Response: `{ message: "Catatan bookmark berhasil diperbarui", catatan: "..." / null }`
+10. `DELETE /api/saved-sponsors/:id` (Protected with Bearer Token - FR-M3-04 Delete)
+    - Response: `{ message: "Bookmark berhasil dihapus" }`
+11. `PATCH /api/proposals/:id/cancel` (Protected with Bearer Token - FR-M3-05 Update)
+    - Request Body: `{ alasan_pembatalan: "Dana kegiatan telah terpenuhi dari sumber universitas" }`
+    - Aturan Backend:
+      - Validasi: proposal harus milik user (`id_pengirim`) dan status saat ini wajib `'pending'`.
+      - `alasan_pembatalan` wajib minimal 5 karakter, maksimal 500 karakter.
+      - Update kolom `status = 'cancelled'`, `alasan_pembatalan = req.body.alasan_pembatalan`, `status_diperbarui_pada = NOW()`.
+    - Response: `{ message: "Proposal berhasil dibatalkan", proposal: { id_proposal, status: "cancelled", alasan_pembatalan: "..." } }`
 
 ---
 
