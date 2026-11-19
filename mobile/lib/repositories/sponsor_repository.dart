@@ -187,11 +187,52 @@ class SponsorRepository {
     return _savedSponsors.any((b) => b.idEvent == eventId && b.idSponsor == sponsorId);
   }
 
+  /// Mengambil data bookmark spesifik untuk [eventId] dan [sponsorId].
+  Future<SponsorTersimpanModel?> getSavedBookmark(String eventId, String sponsorId) async {
+    try {
+      return _savedSponsors.firstWhere(
+        (b) => b.idEvent == eventId && b.idSponsor == sponsorId,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Mengambil catatan khusus yang tersimpan pada sponsor sasaran (bookmark).
+  /// Mengembalikan string kosong jika belum ada catatan.
+  Future<String> getSponsorNote(String eventId, String sponsorId) async {
+    final bookmark = await getSavedBookmark(eventId, sponsorId);
+    return bookmark?.catatan ?? '';
+  }
+
+  /// Memperbarui atau menambahkan catatan untuk sponsor sasaran.
+  /// Jika sponsor belum di-bookmark, akan otomatis disimpan ke daftar sasaran.
+  Future<void> updateSponsorNote(String eventId, String sponsorId, String note) async {
+    final index = _savedSponsors.indexWhere(
+      (b) => b.idEvent == eventId && b.idSponsor == sponsorId,
+    );
+
+    if (index >= 0) {
+      _savedSponsors[index] = _savedSponsors[index].copyWith(catatan: note);
+    } else {
+      _savedSponsors.add(
+        SponsorTersimpanModel(
+          id: 'BM-${DateTime.now().millisecondsSinceEpoch}',
+          idUser: '1',
+          idEvent: eventId,
+          idSponsor: sponsorId,
+          catatan: note,
+          createdAt: DateTime.now(),
+        ),
+      );
+    }
+  }
+
   /// Menyimpan atau menghapus sponsor dari "Daftar Sponsor Sasaran" (Bookmark).
   ///
   /// Mengembalikan `true` jika status berubah menjadi disimpan (saved),
   /// atau `false` jika status berubah menjadi dihapus (un-saved).
-  Future<bool> toggleSaveSponsor(String eventId, String sponsorId) async {
+  Future<bool> toggleSaveSponsor(String eventId, String sponsorId, {String catatan = ''}) async {
     final index = _savedSponsors.indexWhere(
       (b) => b.idEvent == eventId && b.idSponsor == sponsorId,
     );
@@ -206,6 +247,7 @@ class SponsorRepository {
           idUser: '1',
           idEvent: eventId,
           idSponsor: sponsorId,
+          catatan: catatan,
           createdAt: DateTime.now(),
         ),
       );

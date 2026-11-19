@@ -28,17 +28,35 @@ class _SponsorDetailScreenState extends State<SponsorDetailScreen> {
   bool _isSaved = false;
   bool _isLoadingBookmark = false;
 
+  late final TextEditingController _catatanController;
+  late final FocusNode _catatanFocusNode;
+  bool _isEditingNote = false;
+  bool _isSavingNote = false;
+
   @override
   void initState() {
     super.initState();
-    _checkSavedStatus();
+    _catatanController = TextEditingController();
+    _catatanFocusNode = FocusNode();
+    _loadSavedStatusAndNote();
   }
 
-  Future<void> _checkSavedStatus() async {
+  @override
+  void dispose() {
+    _catatanController.dispose();
+    _catatanFocusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadSavedStatusAndNote() async {
     final eventId = widget.event?.idEvent.toString() ?? widget.score?.idEvent ?? '0';
     final saved = await _sponsorRepo.isSponsorSaved(eventId, widget.sponsor.idSponsor);
+    final note = await _sponsorRepo.getSponsorNote(eventId, widget.sponsor.idSponsor);
     if (mounted) {
-      setState(() => _isSaved = saved);
+      setState(() {
+        _isSaved = saved;
+        _catatanController.text = note;
+      });
     }
   }
 
@@ -47,13 +65,24 @@ class _SponsorDetailScreenState extends State<SponsorDetailScreen> {
     setState(() => _isLoadingBookmark = true);
 
     final eventId = widget.event?.idEvent.toString() ?? widget.score?.idEvent ?? '0';
-    final isNowSaved = await _sponsorRepo.toggleSaveSponsor(eventId, widget.sponsor.idSponsor);
+    final currentNote = _catatanController.text.trim();
+    final isNowSaved = await _sponsorRepo.toggleSaveSponsor(
+      eventId,
+      widget.sponsor.idSponsor,
+      catatan: currentNote,
+    );
 
     if (mounted) {
       setState(() {
         _isSaved = isNowSaved;
+        if (!isNowSaved) {
+          _isEditingNote = false;
+        }
         _isLoadingBookmark = false;
       });
+      if (!isNowSaved) {
+        _catatanFocusNode.unfocus();
+      }
 
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -76,6 +105,49 @@ class _SponsorDetailScreenState extends State<SponsorDetailScreen> {
             ],
           ),
           backgroundColor: isNowSaved ? AppColors.success : AppColors.textSecondary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleSaveNote() async {
+    if (_isSavingNote) return;
+    final eventId = widget.event?.idEvent.toString() ?? widget.score?.idEvent ?? '0';
+    final note = _catatanController.text.trim();
+
+    setState(() => _isSavingNote = true);
+    await _sponsorRepo.updateSponsorNote(eventId, widget.sponsor.idSponsor, note);
+
+    if (mounted) {
+      setState(() {
+        _isSavingNote = false;
+        _isEditingNote = false;
+        if (!_isSaved) {
+          _isSaved = true;
+        }
+      });
+      _catatanFocusNode.unfocus();
+
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  note.isNotEmpty
+                      ? 'Catatan sponsor sasaran berhasil disimpan!'
+                      : 'Catatan sponsor sasaran dikosongkan.',
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: AppColors.success,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           duration: const Duration(seconds: 2),
@@ -226,11 +298,17 @@ class _SponsorDetailScreenState extends State<SponsorDetailScreen> {
             _buildPreferensiSection(sponsor),
             const SizedBox(height: 16),
 
-            // 4. KONTAK & INFORMASI CSR
+            // 4. FIELD CATATAN SPONSOR SASARAN (Hanya muncul jika sponsor tersimpan di bookmark)
+            if (_isSaved) ...[
+              _buildCatatanSection(),
+              const SizedBox(height: 16),
+            ],
+
+            // 5. KONTAK & INFORMASI CSR
             _buildContactSection(sponsor),
             const SizedBox(height: 24),
 
-            // 5. TOMBOL AKSI UTAMA
+            // 6. TOMBOL AKSI UTAMA
             _buildActionButtons(),
             const SizedBox(height: 20),
           ],
@@ -616,6 +694,125 @@ class _SponsorDetailScreenState extends State<SponsorDetailScreen> {
           }).toList(),
         ),
       ],
+    );
+  }
+
+  Widget _buildCatatanSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.sticky_note_2_rounded, color: AppColors.primary, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Catatan Sponsor Sasaran',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Catatan internal untuk follow-up sponsor yang disimpan (bookmark).',
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _catatanController,
+            focusNode: _catatanFocusNode,
+            readOnly: !_isEditingNote,
+            maxLines: 3,
+            minLines: 1,
+            onChanged: (_) => setState(() {}),
+            onTap: () {
+              if (!_isEditingNote) {
+                setState(() => _isEditingNote = true);
+              }
+              _catatanController.selection = TextSelection.fromPosition(
+                TextPosition(offset: _catatanController.text.length),
+              );
+            },
+            style: const TextStyle(
+              fontSize: 13.5,
+              color: AppColors.textPrimary,
+              height: 1.4,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Belum ada catatan...',
+              hintStyle: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+                fontStyle: FontStyle.italic,
+              ),
+              filled: true,
+              fillColor: _isEditingNote ? Colors.white : AppColors.surfaceMuted,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                  color: _isEditingNote ? AppColors.primary : AppColors.border,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                  color: _isEditingNote ? AppColors.primary : AppColors.border,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(
+                  color: AppColors.primary,
+                  width: 1.5,
+                ),
+              ),
+              suffixIcon: IconButton(
+                tooltip: _isEditingNote ? 'Simpan catatan' : 'Edit isi catatan',
+                icon: Icon(
+                  _isEditingNote ? Icons.check_circle_rounded : Icons.edit_rounded,
+                  color: _isEditingNote ? AppColors.primary : AppColors.textSecondary,
+                  size: 20,
+                ),
+                onPressed: () {
+                  if (_isEditingNote) {
+                    _handleSaveNote();
+                  } else {
+                    setState(() => _isEditingNote = true);
+                    _catatanController.selection = TextSelection.fromPosition(
+                      TextPosition(offset: _catatanController.text.length),
+                    );
+                    Future.delayed(const Duration(milliseconds: 50), () {
+                      _catatanFocusNode.requestFocus();
+                    });
+                  }
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

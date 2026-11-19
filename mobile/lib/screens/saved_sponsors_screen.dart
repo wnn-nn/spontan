@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/constants/app_colors.dart';
 import '../models/sponsor_model.dart';
+import '../models/sponsor_tersimpan_model.dart';
 import '../repositories/sponsor_repository.dart';
 import 'sponsor_detail_screen.dart';
 
@@ -173,6 +174,41 @@ class _SavedSponsorsScreenState extends State<SavedSponsorsScreen> {
                                 height: 1.4,
                               ),
                             ),
+                            if (bookmark is SponsorTersimpanModel && bookmark.catatan.trim().isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: AppColors.borderLight),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(
+                                      Icons.sticky_note_2_outlined,
+                                      size: 15,
+                                      color: AppColors.primary,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        bookmark.catatan,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF334155),
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 14),
                             const Divider(height: 1, color: AppColors.borderLight),
                             const SizedBox(height: 12),
