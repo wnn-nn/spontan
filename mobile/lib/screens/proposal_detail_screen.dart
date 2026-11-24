@@ -654,7 +654,7 @@ class _ProposalDetailScreenState extends State<ProposalDetailScreen> {
               Icon(Icons.mark_chat_read_rounded, color: titleColor, size: 18),
               const SizedBox(width: 8),
               Text(
-                'Catatan dari Mitra Sponsor (via API)',
+                'Catatan dari Mitra Sponsor',
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.bold,
